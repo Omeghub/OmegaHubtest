@@ -27,26 +27,96 @@ local Tabs = {
 ---------------
 
 
-local queueteleport = queue_on_teleport or queueonteleport
-local KeepEnabled = false
+-- KEEP SCRIPT FEATURE - FIXED VERSION
+-- Add this to your Omega Hub script
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Config
+local KeepScriptEnabled = false
+local TeleportCheck = false
+
+-- Detect queueteleport
+local queueteleport = queue_on_teleport or 
+                      (syn and syn.queue_on_teleport) or 
+                      (fluxus and fluxus.queue_on_teleport) or
+                      queueonteleport
+
+-- Your script URL
+local ScriptURL = "https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/dhtest"
+
+-- Setup teleport handler
 if queueteleport then
-    game.Players.LocalPlayer.OnTeleport:Connect(function()
-        if KeepEnabled then
-            queueteleport("loadstring(game:HttpGet('TON_URL_ICI'))()")
+    LocalPlayer.OnTeleport:Connect(function(State)
+        if KeepScriptEnabled and not TeleportCheck then
+            TeleportCheck = true
+            
+            -- Method 1: Simple string
+            local code = "repeat task.wait() until game:IsLoaded() wait(2) loadstring(game:HttpGet('" .. ScriptURL .. "'))()"
+            queueteleport(code)
+            
+            print("Script queued for teleport")
         end
     end)
-    
-    Tabs.Main:AddToggle("Keep", {
-        Title = "Keep Script",
-        Default = false,
-        Callback = function(v) KeepEnabled = v end
-    })
-    
-    print("Keep Script: OK")
-else
-    print("Keep Script: NOT SUPPORTED")
 end
+
+-- Create toggle
+local KeepScriptToggle = Tabs.Settings:AddToggle("KeepScript", {
+    Title = "Keep Script on Teleport",
+    Description = "Auto re-execute after teleporting",
+    Default = false,
+    Callback = function(Value)
+        if not queueteleport then
+            Fluent:Notify({
+                Title = "Not Supported",
+                Content = "Your executor does not support this feature",
+                Duration = 5
+            })
+            return
+        end
+        
+        KeepScriptEnabled = Value
+        TeleportCheck = false
+        
+        local status = Value and "Enabled" or "Disabled"
+        Fluent:Notify({
+            Title = "Keep Script " .. status,
+            Content = Value and "Script will re-execute" or "Script won't re-execute",
+            Duration = 3
+        })
+    end
+})
+
+-- Info section
+Tabs.Main:AddParagraph({
+    Title = "Keep Script Info",
+    Content = "When enabled, script re-executes after teleporting to another server or place."
+})
+
+-- Test button
+Tabs.Main:AddButton({
+    Title = "Test Compatibility",
+    Description = "Check if your executor supports this",
+    Callback = function()
+        if queueteleport then
+            Fluent:Notify({
+                Title = "Compatible",
+                Content = "Your executor supports Keep Script",
+                Duration = 3
+            })
+        else
+            Fluent:Notify({
+                Title = "Incompatible", 
+                Content = "Feature not available on your executor",
+                Duration = 5
+            })
+        end
+    end
+})
+
+print("Keep Script:", queueteleport and "Ready" or "Not Available")
+
 
 
  ---------------
