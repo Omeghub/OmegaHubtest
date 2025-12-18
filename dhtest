@@ -22,12 +22,13 @@ local Window = Fluent:CreateWindow({
 Fluent:Notify({
    Title = "Notification",
    Content = "Script injected :)",
-   Duration = 5 
+   Duration = 2
 })
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Combat", Icon = "swords" }),
     Raid = Window:AddTab({ Title = "Raid / Dungeon", Icon = "sword" }),
+    Items = Window:AddTab({Title = "Items", Icon = "pickaxe" }),
     Sell = Window:AddTab({Title = "Sell", Icon = "layers" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -266,28 +267,18 @@ Tabs.Raid:AddToggle("AutoStart", {
 
 _G.AutoReplayDungeon = false
 
+local exitRemote = ReplicatedStorage.Systems.Dungeons.SetExitChoice
+
 local function AutoReplayDungeon()
-    local exitRemote = ReplicatedStorage.Systems.Dungeons.SetExitChoice
-
     while _G.AutoReplayDungeon do
-        local gui = player.PlayerGui:FindFirstChild("DungeonCleared")
+        
+        exitRemote:FireServer("NextDifficulty")
 
-        if gui and gui:FindFirstChild("Frame") and gui.Frame:FindFirstChild("Buttons") then
-            local buttons = gui.Frame.Buttons
+        task.wait(0.5)
 
-            if buttons:FindFirstChild("NextDifficulty")
-            and buttons.NextDifficulty.Visible then
+        exitRemote:FireServer("GoAgain")
 
-                exitRemote:FireServer("NextDifficulty")
-
-            elseif buttons:FindFirstChild("RunAgain")
-            and buttons.RunAgain.Visible then
-
-                exitRemote:FireServer("GoAgain")
-            end
-        end
-
-        task.wait(0.3)
+        task.wait(2)
     end
 end
 
@@ -295,9 +286,12 @@ Tabs.Raid:AddToggle("AutoReplayDungeonToggle", {
     Title = "Auto Next or Run Again",
     Callback = function(state)
         _G.AutoReplayDungeon = state
-        if state then task.spawn(AutoReplayDungeon) end
+        if state then
+            task.spawn(AutoReplayDungeon)
+        end
     end
 })
+
 
 -- =========================================================
 --  AUTO FARM
@@ -416,6 +410,23 @@ Tabs.Raid:AddSlider("TPSpeedSlider", {
         tpSpeed = value
     end
 })
+-- =========================================================
+-- Items
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 -- =========================================================
 -- Sell
 
@@ -553,11 +564,6 @@ Tabs.Misc:AddToggle("AutoReInject", {
     Default = false,
     Callback = function(Value)
         if not queueteleport then
-            Fluent:Notify({
-                Title = "Not Supported",
-                Content = "Your executor does not support this feature",
-                Duration = 5
-            })
             return
         end
         
@@ -590,15 +596,7 @@ SaveManager:IgnoreThemeSettings()
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
-
 Window:SelectTab(1)
-
-Fluent:Notify({
-   Title = "Omega Hub",
-   Content = "Script loaded: KillAura FIXED + TP stable!",
-   Duration = 2
-})
-----------------------
 
 -- =========================
 -- MOBILE / PC BUTTON
