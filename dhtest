@@ -28,7 +28,7 @@ Fluent:Notify({
 local Tabs = {
     Main = Window:AddTab({ Title = "Combat", Icon = "swords" }),
     Raid = Window:AddTab({ Title = "Raid / Dungeon", Icon = "sword" }),
-    Items = Window:AddTab({Title = "Items", Icon = "pickaxe" }),
+    Items = Window:AddTab({Title = "Items", Icon = "axe" }),
     Sell = Window:AddTab({Title = "Sell", Icon = "layers" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -271,14 +271,14 @@ local exitRemote = ReplicatedStorage.Systems.Dungeons.SetExitChoice
 
 local function AutoReplayDungeon()
     while _G.AutoReplayDungeon do
-        
+
         exitRemote:FireServer("NextDifficulty")
 
-        task.wait(0.5)
+        task.wait(0.1)
 
         exitRemote:FireServer("GoAgain")
 
-        task.wait(2)
+        task.wait(0.1)
     end
 end
 
