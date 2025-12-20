@@ -1,4 +1,22 @@
-wait(5)
+local function LoadModule(url)
+    local module
+    repeat
+        local success, result = pcall(function()
+            return loadstring(game:HttpGet(url))()
+        end)
+        if success then
+            module = result
+        else
+            warn("Module non chargé, retry dans 1s : "..url)
+            wait(1)
+        end
+    until module
+    return module
+end
+
+local player = game.Players.LocalPlayer
+repeat wait() until player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
@@ -122,19 +140,37 @@ Tabs.Main:AddSlider("AttackDelaySlider", {
         attackDelay = value
     end
 })
-
 -- =========================================================
--- Kill Auras Pets
+-- PET KILL AURA (CLEAN + MULTI ATTACKS)
 
-local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local mobsFolder = workspace:WaitForChild("Mobs")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local mobsFolder = Workspace:WaitForChild("Mobs")
 local remotePetAttack = ReplicatedStorage.Systems.Combat.PetDamage
+
+local petAttackDelay = 0.2
+local petKillAuraRange = 250
+
+-- 🔴 LISTE DES ATTAQUES POSSIBLES DU PET
+local PET_ATTACKS = {
+    "Claw",
+    "Basic Attack",
+    "SlamDown",
+    "Stance",
+    "Spear Sweep",
+    "Ground Slam", -- krampus
+    "soot cloud", -- krampus
+    "chain whip", -- krampus
+    "present throw", -- krampus
+    "dark ember trail" -- krampus
+}
 
 _G.PetKillAuraEnabled = false
 _G.PetKillAuraRunning = false
-local petAttackDelay = 0.2
-local petKillAuraRange = 100
+
 
 local function getPlayerPet()
     for _, pet in ipairs(mobsFolder:GetChildren()) do
@@ -145,12 +181,14 @@ local function getPlayerPet()
     return nil
 end
 
-local function getClosestMobsForPet(hrp)
+local function getClosestMob(hrp)
     local closest, dist = nil, petKillAuraRange
+
     for _, mob in ipairs(mobsFolder:GetChildren()) do
-        if mob:IsA("Model") 
-           and mob:FindFirstChild("HumanoidRootPart") 
-           and mob:GetAttribute("Owner") == nil then
+        if mob:IsA("Model")
+        and mob:FindFirstChild("HumanoidRootPart")
+        and mob:GetAttribute("Owner") == nil then
+
             local d = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
             if d < dist then
                 dist = d
@@ -158,7 +196,25 @@ local function getClosestMobsForPet(hrp)
             end
         end
     end
+
     return closest
+end
+
+local function getValidAttack(petName)
+    local mobFolder = ReplicatedStorage:FindFirstChild("Mobs")
+    local petFolder = mobFolder and mobFolder:FindFirstChild(petName)
+    local attacks = petFolder and petFolder:FindFirstChild("Attacks")
+
+    if not attacks then return nil end
+
+    for _, attackName in ipairs(PET_ATTACKS) do
+        local attack = attacks:FindFirstChild(attackName)
+        if attack and attack:FindFirstChild("Circle") then
+            return attackName, attack.Circle
+        end
+    end
+
+    return nil
 end
 
 local function PetKillAura()
@@ -168,35 +224,29 @@ local function PetKillAura()
     while _G.PetKillAuraEnabled do
         local pet = getPlayerPet()
         local char = player.Character
-        if not pet or not char or not char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+        if not pet or not hrp then
             task.wait(0.5)
             continue
         end
 
-        local hrp = char.HumanoidRootPart
-
         local petHRP = pet:FindFirstChild("HumanoidRootPart")
         if petHRP then
-            petHRP.CFrame = hrp.CFrame + Vector3.new(2,0,2)
+            petHRP.CFrame = hrp.CFrame * CFrame.new(2, 0, 2)
         end
 
-        local mob = getClosestMobsForPet(hrp)
-        if mob and mob.Parent then
-            local attackFolder = ReplicatedStorage.Mobs:FindFirstChild(pet.Name)
-            if attackFolder and attackFolder:FindFirstChild("Attacks") then
-                local attackRemote = attackFolder.Attacks:FindFirstChild("Claw")
-                if attackRemote then
-                    local circle = attackRemote:FindFirstChild("Circle")
-                    if circle then
-                        local args = {
-                            pet,
-                            "Claw",
-                            circle,
-                            {mob}
-                        }
-                        remotePetAttack:FireServer(unpack(args))
-                    end
-                end
+        local mob = getClosestMob(hrp)
+        if mob then
+            local attackName, circle = getValidAttack(pet.Name)
+
+            if attackName and circle then
+                remotePetAttack:FireServer(
+                    pet,
+                    attackName,
+                    circle,
+                    { mob }
+                )
             end
         end
 
@@ -229,10 +279,6 @@ Tabs.Main:AddSlider("PetAttackDelay", {
         petAttackDelay = value
     end
 })
-
-
-
-
 -- =========================================================
 -- AUTO START DUNGEON
 
@@ -261,29 +307,45 @@ Tabs.Raid:AddToggle("AutoStart", {
         if state then task.spawn(AutoStartDungeon) end
     end
 })
-
 -- =========================================================
--- AUTO NEXT DIFFICULTY / AUTO RUN AGAIN
+-- AUTO REPLAY DUNGEON
 
 _G.AutoReplayDungeon = false
 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
 local exitRemote = ReplicatedStorage.Systems.Dungeons.SetExitChoice
 
 local function AutoReplayDungeon()
     while _G.AutoReplayDungeon do
+        local gui = player.PlayerGui:FindFirstChild("DungeonCleared")
 
-        exitRemote:FireServer("NextDifficulty")
+        if gui then
+            local frame = gui:FindFirstChild("Frame")
+            local buttons = frame and frame:FindFirstChild("Buttons")
 
-        wait(0.1)
+            if buttons then
+                local nextDiff = buttons:FindFirstChild("NextDifficulty")
+                local runAgain = buttons:FindFirstChild("RunAgain")
 
-        exitRemote:FireServer("GoAgain")
+                if nextDiff and nextDiff.Visible then
+                    exitRemote:FireServer("NextDifficulty")
 
-        wait(0.2)
+                elseif runAgain and runAgain.Visible then
+                    exitRemote:FireServer("GoAgain")
+                end
+            end
+        end
+
+        task.wait(0.3)
     end
 end
 
 Tabs.Raid:AddToggle("AutoReplayDungeonToggle", {
-    Title = "Auto Next or Run Again",
+    Title = "Auto Next / Run Again",
+    Default = false,
     Callback = function(state)
         _G.AutoReplayDungeon = state
         if state then
@@ -291,11 +353,9 @@ Tabs.Raid:AddToggle("AutoReplayDungeonToggle", {
         end
     end
 })
-
-
 -- =========================================================
---  AUTO FARM
---// CONFIG
+-- AUTO FARM
+
 local tpHeight = 50
 local tpSpeed = 200
 local MAX_DISTANCE = 1000
@@ -304,16 +364,40 @@ local HIGH_HP = 3000000
 local oscillationAmplitude = 20
 local oscillationSpeed = 5
 
---// SERVICES
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local mobsFolder = Workspace:WaitForChild("Mobs")
 
---// GLOBAL
+local LOBBY_PLACE_IDS = {
+    [94845773826960] = true,
+    [126558459867198] = true,
+    [94761525307396] = true
+}
+
+local function isLobby()
+    return LOBBY_PLACE_IDS[game.PlaceId] == true
+end
+
 _G.AutoFarmEnabled = false
 
---// GET NEAREST MOB
+local function resetCharacter(char)
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChild("Humanoid")
+
+    if hrp then
+        hrp.Velocity = Vector3.zero
+        hrp.CanCollide = false
+    end
+
+    if humanoid then
+        humanoid.PlatformStand = false
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+end
+
 local function getNearestMob(hrp)
     local best, dist = nil, MAX_DISTANCE
     local bestHighHP, distHighHP = nil, MAX_DISTANCE
@@ -334,11 +418,9 @@ local function getNearestMob(hrp)
                         distHighHP = d
                         bestHighHP = mob
                     end
-                else
-                    if d < dist then
-                        dist = d
-                        best = mob
-                    end
+                elseif d < dist then
+                    dist = d
+                    best = mob
                 end
             end
         end
@@ -347,7 +429,6 @@ local function getNearestMob(hrp)
     return bestHighHP or best
 end
 
---// AUTO FARM
 local function AutoFarm()
     local startTime = tick()
 
@@ -375,17 +456,15 @@ local function AutoFarm()
 
             hrp.CFrame = CFrame.new(hrp.Position, mob.HumanoidRootPart.Position)
 
-            -- disable collisions
             for _, v in ipairs(char:GetDescendants()) do
                 if v:IsA("BasePart") then
                     v.CanCollide = false
                 end
             end
         else
-            -- reset collisions & let physics work normally
             for _, v in ipairs(char:GetDescendants()) do
                 if v:IsA("BasePart") then
-                    v.CanCollide = true
+                    v.CanCollide = false
                 end
             end
 
@@ -395,12 +474,11 @@ local function AutoFarm()
         task.wait()
     end
 
-    -- final reset when disabled
     local char = player.Character
     if char then
         for _, v in ipairs(char:GetDescendants()) do
             if v:IsA("BasePart") then
-                v.CanCollide = true
+                v.CanCollide = false
             end
         end
         local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -410,7 +488,6 @@ local function AutoFarm()
     end
 end
 
---// UI
 local Section = Tabs.Raid:AddSection("Auto Farm")
 
 Tabs.Raid:AddToggle("AutoFarmToggle", {
@@ -445,7 +522,6 @@ Tabs.Raid:AddSlider("TPSpeedSlider", {
         tpSpeed = value
     end
 })
-
 -- =========================================================
 -- Items
 
@@ -533,8 +609,6 @@ for rarityId, rarityName in ipairs(rarityList) do
         end
     })
 end
-
-
 -- =========================================================
 -- Misc
 
@@ -607,7 +681,28 @@ Tabs.Misc:AddToggle("AutoReInject", {
         TeleportCheck = false
     end
 })
+-- =========================================================
+-- Auto Claim Crystals
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local claimCrystals = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("PremiumShop"):WaitForChild("ClaimFreeCrystals")
+
+local autoClaim = false
+
+Tabs.Misc:AddToggle("Auto Claim Crystals", {
+    Title = "Auto Claim Crystals",
+    Callback = function(state)
+        autoClaim = state
+        if autoClaim then
+            spawn(function()
+                while autoClaim do
+                    claimCrystals:FireServer()
+                    wait(1)
+                end
+            end)
+        end
+    end
+})
 -- =========================================================
 -- RE-START AUTOMATIQUE APRÈS MORT
 
