@@ -26,21 +26,22 @@ local Tabs = {
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
  }
 -- =========================================================
--- AUTO FARM DUNGEON HEROES (AUTO CLICK VERSION)
-
+-- AUTO FARM DUNGEON HEROES (TP + AUTO CLICK ONLY)
 repeat task.wait() until game:IsLoaded()
 
+-- SERVICES
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
+-- SETTINGS
 local AutoFarm = false
 local HeightAboveMob = 7
 local AttackDelay = 0.12 -- SAFE
 
+-- CHARACTER VARS
 local Character, Humanoid, HRP
 local NoclipConnection, HeartbeatConnection
 
@@ -65,9 +66,11 @@ local function SetupCharacter(char)
     if NoclipConnection then NoclipConnection:Disconnect() end
     if HeartbeatConnection then HeartbeatConnection:Disconnect() end
 
+    -- Etat normal
     Humanoid.PlatformStand = false
     Humanoid:ChangeState(Enum.HumanoidStateType.Running)
 
+    -- NOCLIP seulement quand AutoFarm ON
     NoclipConnection = RunService.Stepped:Connect(function()
         if not Character then return end
         for _, v in pairs(Character:GetDescendants()) do
@@ -77,6 +80,7 @@ local function SetupCharacter(char)
         end
     end)
 
+    -- TP AU-DESSUS DES MOBS
     HeartbeatConnection = RunService.Heartbeat:Connect(function()
         if not AutoFarm or not HRP then return end
 
@@ -114,22 +118,9 @@ task.spawn(function()
         task.wait(AttackDelay)
         if not AutoFarm then continue end
 
-        VirtualInputManager:SendMouseButtonEvent(
-            0, 0, 0, true, game, 0
-        )
-        VirtualInputManager:SendMouseButtonEvent(
-            0, 0, 0, false, game, 0
-        )
-
-        local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
-        if cdQ and cdQ.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("Q")
-        end
-
-        local cdE = LocalPlayer:FindFirstChild("cooldownE")
-        if cdE and cdE.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("E")
-        end
+        -- CLIC SOURIS / TAP MOBILE
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
 end)
 
@@ -144,7 +135,7 @@ end)
 
 Tabs.Main:AddToggle("AutoFarm", {
     Title = "Auto Farm",
-    Description = "TP mobs + clic auto + Q / E",
+    Description = "TP mobs + clic auto (sans skills)",
     Default = false,
     Callback = function(Value)
         AutoFarm = Value
@@ -153,6 +144,7 @@ Tabs.Main:AddToggle("AutoFarm", {
         end
     end
 })
+
 
 
 
