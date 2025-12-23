@@ -27,7 +27,134 @@ local Tabs = {
  }
 -- =========================================================
 
+-- =========================================================
+-- AUTO FARM DUNGEON HEROES (AUTO CLICK VERSION)
 
+repeat task.wait() until game:IsLoaded()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+
+local AutoFarm = false
+local HeightAboveMob = 7
+local AttackDelay = 0.12 -- SAFE
+
+local Character, Humanoid, HRP
+local NoclipConnection, HeartbeatConnection
+
+local function GetModelRoot(model)
+    if model.PrimaryPart then return model.PrimaryPart end
+    for _, v in pairs(model:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name:lower():find("root") then
+            return v
+        end
+    end
+    for _, v in pairs(model:GetDescendants()) do
+        if v:IsA("BasePart") then return v end
+    end
+    return nil
+end
+
+local function SetupCharacter(char)
+    Character = char
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+
+    if NoclipConnection then NoclipConnection:Disconnect() end
+    if HeartbeatConnection then HeartbeatConnection:Disconnect() end
+
+    Humanoid.PlatformStand = false
+    Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+
+    NoclipConnection = RunService.Stepped:Connect(function()
+        if not Character then return end
+        for _, v in pairs(Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = not AutoFarm
+            end
+        end
+    end)
+
+    HeartbeatConnection = RunService.Heartbeat:Connect(function()
+        if not AutoFarm or not HRP then return end
+
+        local enemiesFolder = workspace:FindFirstChild("Enemies")
+        if not enemiesFolder then return end
+
+        local closest, shortestDist = nil, math.huge
+
+        for _, mob in pairs(enemiesFolder:GetChildren()) do
+            if mob:IsA("Model") then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                local root = GetModelRoot(mob)
+
+                if hum and hum.Health > 0 and root then
+                    local dist = (root.Position - HRP.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closest = mob
+                    end
+                end
+            end
+        end
+
+        if closest then
+            local root = GetModelRoot(closest)
+            if root then
+                HRP.CFrame = root.CFrame * CFrame.new(0, HeightAboveMob, 0)
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    while true do
+        task.wait(AttackDelay)
+        if not AutoFarm then continue end
+
+        VirtualInputManager:SendMouseButtonEvent(
+            0, 0, 0, true, game, 0
+        )
+        VirtualInputManager:SendMouseButtonEvent(
+            0, 0, 0, false, game, 0
+        )
+
+        local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
+        if cdQ and cdQ.Value <= 0 then
+            ReplicatedStorage:WaitForChild("useSpell"):FireServer("Q")
+        end
+
+        local cdE = LocalPlayer:FindFirstChild("cooldownE")
+        if cdE and cdE.Value <= 0 then
+            ReplicatedStorage:WaitForChild("useSpell"):FireServer("E")
+        end
+    end
+end)
+
+if LocalPlayer.Character then
+    SetupCharacter(LocalPlayer.Character)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    SetupCharacter(char)
+end)
+
+Tabs.Main:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Description = "TP mobs + clic auto + Q / E",
+    Default = false,
+    Callback = function(Value)
+        AutoFarm = Value
+        if not Value and HRP then
+            HRP.Velocity = Vector3.zero
+        end
+    end
+})
 
 
 
