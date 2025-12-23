@@ -1,30 +1,10 @@
 -- =========================================================
--- CHARGEMENTS DU SCRIPT
-local function LoadModule(url)
-    local module
-    repeat
-        local success, result = pcall(function()
-            return loadstring(game:HttpGet(url))()
-        end)
-        if success then
-            module = result
-        else
-            warn("Module non chargé, retry dans 1s : "..url)
-            wait(1)
-        end
-    until module
-    return module
-end
-
-local player = game.Players.LocalPlayer
-repeat wait() until player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
--- =========================================================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
 
 local Window = Fluent:CreateWindow({
-   Title = "Omega Hub I Fabled Legacy RPG",
+   Title = "Omega Hub I Dungeon Heroes",
    TabWidth = 160,
    Size = UDim2.fromOffset(580, 460),
    Theme = "Dark",
@@ -40,211 +20,20 @@ Fluent:Notify({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-   -- Raid = Window:AddTab({ Title = "Raid", Icon = "sword" }),
-    Stats = Window:AddTab({Title = "Stats", Icon = "layers" }),
+    Raid = Window:AddTab({ Title = "Raid", Icon = "sword" }),
+    Players = Window:AddTab({Title = "Player", Icon = "layers" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
  }
 -- =========================================================
--- AUTO FARM DUNGEON HEROES (AUTO CLICK VERSION)
 
-repeat task.wait() until game:IsLoaded()
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
-local LocalPlayer = Players.LocalPlayer
 
-local AutoFarm = false
-local HeightAboveMob = 7
-local AttackDelay = 0.12 -- SAFE
 
-local Character, Humanoid, HRP
-local NoclipConnection, HeartbeatConnection
 
-local function GetModelRoot(model)
-    if model.PrimaryPart then return model.PrimaryPart end
-    for _, v in pairs(model:GetDescendants()) do
-        if v:IsA("BasePart") and v.Name:lower():find("root") then
-            return v
-        end
-    end
-    for _, v in pairs(model:GetDescendants()) do
-        if v:IsA("BasePart") then return v end
-    end
-    return nil
-end
 
-local function SetupCharacter(char)
-    Character = char
-    Humanoid = char:WaitForChild("Humanoid")
-    HRP = char:WaitForChild("HumanoidRootPart")
 
-    if NoclipConnection then NoclipConnection:Disconnect() end
-    if HeartbeatConnection then HeartbeatConnection:Disconnect() end
-
-    Humanoid.PlatformStand = false
-    Humanoid:ChangeState(Enum.HumanoidStateType.Running)
-
-    NoclipConnection = RunService.Stepped:Connect(function()
-        if not Character then return end
-        for _, v in pairs(Character:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = not AutoFarm
-            end
-        end
-    end)
-
-    HeartbeatConnection = RunService.Heartbeat:Connect(function()
-        if not AutoFarm or not HRP then return end
-
-        local enemiesFolder = workspace:FindFirstChild("Enemies")
-        if not enemiesFolder then return end
-
-        local closest, shortestDist = nil, math.huge
-
-        for _, mob in pairs(enemiesFolder:GetChildren()) do
-            if mob:IsA("Model") then
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                local root = GetModelRoot(mob)
-
-                if hum and hum.Health > 0 and root then
-                    local dist = (root.Position - HRP.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closest = mob
-                    end
-                end
-            end
-        end
-
-        if closest then
-            local root = GetModelRoot(closest)
-            if root then
-                HRP.CFrame = root.CFrame * CFrame.new(0, HeightAboveMob, 0)
-            end
-        end
-    end)
-end
-
-task.spawn(function()
-    while true do
-        task.wait(AttackDelay)
-        if not AutoFarm then continue end
-
-        VirtualInputManager:SendMouseButtonEvent(
-            0, 0, 0, true, game, 0
-        )
-        VirtualInputManager:SendMouseButtonEvent(
-            0, 0, 0, false, game, 0
-        )
-
-        local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
-        if cdQ and cdQ.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("Q")
-        end
-
-        local cdE = LocalPlayer:FindFirstChild("cooldownE")
-        if cdE and cdE.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("E")
-        end
-    end
-end)
-
-if LocalPlayer.Character then
-    SetupCharacter(LocalPlayer.Character)
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    SetupCharacter(char)
-end)
-
-Tabs.Main:AddToggle("AutoFarm", {
-    Title = "Auto Farm",
-    Description = "TP mobs + clic auto + Q / E",
-    Default = false,
-    Callback = function(Value)
-        AutoFarm = Value
-        if not Value and HRP then
-            HRP.Velocity = Vector3.zero
-        end
-    end
-})
-
--- =========================================================
--- AUTO start
-local autoStart = false
-Tabs.Main:AddToggle("AutoStartDungeon", {
-    Title = "Auto Start Dungeon", 
-    Description = "Active l'auto start du dungeon",
-    Default = false,
-    Callback = function(state)
-        autoStart = state
-        if state then
-            print("Auto Start Activé")
-            spawn(function()
-                while autoStart do
-                    local args = {true}
-                    game:GetService("ReplicatedStorage"):WaitForChild("StartDungeon"):FireServer(unpack(args))
-                    wait(1)
-                end
-            end)
-        else
-        end
-    end 
-})
--- =========================================================
--- AUTO RETRY
-local autoRetry = false
-
-Tabs.Main:AddToggle("AutoRetry", {
-    Title = "Auto Retry",
-    Description = "Relance automatiquement le vote",
-    Default = false,
-    Callback = function(state)
-        autoRetry = state
-        if state then
-            spawn(function()
-                while autoRetry do
-                    local args = {"repeat"}
-                    game:GetService("ReplicatedStorage"):WaitForChild("voteRemote"):FireServer(unpack(args))
-                    wait(1)
-                end
-            end)
-        else
-        end
-    end
-})
--- =========================================================
--- AUTO SPAWN COMPANION
--- =========================================================
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SpawnCompanionRemote = ReplicatedStorage:WaitForChild("SpawnCompanion")
-
-local AutoSpawnCompanion = false
-local SpawnDelay = 0.5
-
-Tabs.Main:AddToggle("AutoSpawnCompanion", {
-    Title = "Auto Spawn Companion",
-    Default = false,
-    Callback = function(Value)
-        AutoSpawnCompanion = Value
-    end
-})
-
-task.spawn(function()
-    while true do
-        task.wait(SpawnDelay)
-
-        if AutoSpawnCompanion then
-            SpawnCompanionRemote:FireServer()
-        end
-    end
-end)
 -- =========================================================
 -- AUTO RE-INJECTIONS AUTOMATIQUE
 local Players = game:GetService("Players")
@@ -258,7 +47,7 @@ local queueteleport = queue_on_teleport or
                       (fluxus and fluxus.queue_on_teleport) or
                       queueonteleport
 
-local ScriptURL = "https://raw.githubusercontent.com/Omegahub1/20-20-/refs/heads/main/FabledLegacy"
+local ScriptURL = "URL Game Script"
 
 if queueteleport then
     LocalPlayer.OnTeleport:Connect(function(State)
@@ -283,34 +72,6 @@ Tabs.Misc:AddToggle("AutoReInject", {
         TeleportCheck = false
     end
 })
--- =========================================================
--- ANTI AFK (SAFE 19 MIN)
-local Players = game:GetService("Players")
-local VirtualUser = game:GetService("VirtualUser")
-
-local LocalPlayer = Players.LocalPlayer
-
-local AntiAFK = false
-local AFKDelay = 900 -- 15 minutes SAFE
-
-Tabs.Misc:AddToggle("AntiAFK", {
-    Title = "Anti AFK",
-    Description = "Empêche le kick après 20 minutes",
-    Default = false,
-    Callback = function(Value)
-        AntiAFK = Value
-    end
-})
-
-task.spawn(function()
-    while true do
-        task.wait(AFKDelay)
-        if AntiAFK then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end
-    end
-end)
 
 -- =========================================================
 -- CONFIG SYSTEM
