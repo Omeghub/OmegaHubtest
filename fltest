@@ -26,13 +26,14 @@ local Tabs = {
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
  }
 -- =========================================================
--- AUTO ATTACK (AUTO CLICK ONLY - NO TP / NO SKILL)
+-- AUTO ATTACK + AUTO SKILL (NO TP / NO MOVE)
 -- =========================================================
 
 repeat task.wait() until game:IsLoaded()
 
 -- SERVICES
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
@@ -42,7 +43,7 @@ local AutoAttack = false
 local AttackDelay = 0.12 -- SAFE
 
 -- =========================================================
--- AUTO CLICK LOOP
+-- AUTO LOOP
 -- =========================================================
 
 task.spawn(function()
@@ -53,9 +54,21 @@ task.spawn(function()
             continue
         end
 
-        -- CLIC SOURIS / TAP MOBILE
+        -- AUTO CLICK (ATTAQUE BASIQUE)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+
+        -- AUTO SKILL Q
+        local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
+        if cdQ and cdQ.Value <= 0 then
+            ReplicatedStorage:WaitForChild("useSpell"):FireServer("Q")
+        end
+
+        -- AUTO SKILL E
+        local cdE = LocalPlayer:FindFirstChild("cooldownE")
+        if cdE and cdE.Value <= 0 then
+            ReplicatedStorage:WaitForChild("useSpell"):FireServer("E")
+        end
     end
 end)
 
@@ -63,9 +76,9 @@ end)
 -- UI TOGGLE
 -- =========================================================
 
-Tabs.Main:AddToggle("AutoAttack", {
-    Title = "Auto Attack",
-    Description = "Auto click (attaque basique uniquement)",
+Tabs.Main:AddToggle("AutoAttackSkill", {
+    Title = "Auto Attack + Skill",
+    Description = "Auto click + Q / E (sans TP)",
     Default = false,
     Callback = function(Value)
         AutoAttack = Value
