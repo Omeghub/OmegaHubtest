@@ -26,8 +26,6 @@ local Tabs = {
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
  }
 -- =========================================================
-
--- =========================================================
 -- AUTO FARM DUNGEON HEROES (AUTO CLICK VERSION)
 
 repeat task.wait() until game:IsLoaded()
