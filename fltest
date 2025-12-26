@@ -1,3 +1,62 @@
+local KeyFile = "OmegaAuthKey.txt"
+local License
+
+if pcall(function() return readfile(KeyFile) end) then
+    License = readfile(KeyFile)
+    print("[KEY LOADED] -> "..License)
+else
+    License = _G.Key or nil
+end
+
+if not License or License == "" then
+    game.Players.LocalPlayer:Kick("⚠ You must enter _G.Key before executing.")
+    return
+end
+
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+
+local AppName   = "OmegaHubRb"
+local OwnerID   = "kD8AaNiIO3"
+local APPVersion = "1.0"
+
+local ok, HWID = pcall(function()
+    return game:GetService("RbxAnalyticsService"):GetClientId()
+end)
+if not ok then HWID = "NoHWID" end
+
+StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
+
+local initReq = game:HttpGet("https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion)
+local initData = HttpService:JSONDecode(initReq)
+
+if not initData.success then
+    game.Players.LocalPlayer:Kick("❌ INIT ERROR: "..initData.message)
+    return
+end
+
+local sessionid = initData.sessionid
+
+local licenseReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=license"..
+    "&key="..License.."&hwid="..HWID.."&sessionid="..sessionid.."&ver="..APPVersion
+)
+
+local licenseData = HttpService:JSONDecode(licenseReq)
+
+if not licenseData.success then
+    game.Players.LocalPlayer:Kick("❌ BAD KEY: "..licenseData.message)
+    return
+end
+
+pcall(function()
+    writefile(KeyFile, License)
+    print("[KEY SAVED] ✔")
+end)
+
+StarterGui:SetCore("SendNotification",{Title="✔ AUTH SUCCESS",Text="Welcome "..licenseData.info.username,Duration=5})
+print("\nAUTH SUCCESS ✔")
+-- =========================================================
 if getgenv().ReinjectLoaded then return end
 getgenv().ReinjectLoaded = true
 
@@ -28,7 +87,6 @@ LocalPlayer.OnTeleport:Connect(function()
         loadstring(game:HttpGet("]]..ScriptURL..[[", true))()
     ]])
 end)
-
 -- =========================================================
 -- UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
