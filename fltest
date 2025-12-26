@@ -150,6 +150,7 @@ task.spawn(function()
     end
 end)
 
+-- UI
 Tabs.Main:AddToggle("AutoFarmTP", {
     Title = "Auto Farm TP",
     Description = "TP au mob + auto swing",
@@ -170,7 +171,7 @@ Tabs.Main:AddToggle("AutoSpell", {
 })
 
 -- =========================================================
--- AUTO START DUNGEON LORSQUE AUTO FARM ON
+-- AUTO START DUNGEON 
 task.spawn(function()
     while task.wait(0.5) do
         if not AutoStartDungeon then continue end
@@ -187,6 +188,37 @@ task.spawn(function()
         end
     end
 end)
+
+-- =========================================================
+-- 🔥 ANTI-STUCK SYSTEM 🔥
+local LastHP = nil
+local LastDecrease = tick()
+local StuckTime = 3 -- secondes avant reset si bloqué
+
+task.spawn(function()
+    while task.wait(1) do
+        if AutoFarm and CurrentTarget then
+            local hum = CurrentTarget.Parent:FindFirstChildOfClass("Humanoid")
+            if hum then
+                if not LastHP then
+                    LastHP = hum.Health
+                    LastDecrease = tick()
+                elseif hum.Health < LastHP then
+                    LastHP = hum.Health
+                    LastDecrease = tick()
+                elseif tick() - LastDecrease > StuckTime then
+                    warn("⚠ Mob bloqué - Reset Player (Anti-Stuck)")
+                    LocalPlayer.Character:BreakJoints()
+                    task.wait(3)
+                    LastHP = nil
+                end
+            end
+        else
+            LastHP = nil
+        end
+    end
+end)
+
 
 -- =========================================================
 -- AUTO RETRY
