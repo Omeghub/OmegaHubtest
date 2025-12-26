@@ -1,47 +1,51 @@
---=====================================================
--- KEYAUTH SYSTEM
---=====================================================
-
-local name = "OverScyth"        -- Nom de ton App
-local ownerid = "S23XTKpUTe"    -- OwnerID
-local secret = "a7a2a5ecfa65be6080ffbd7d7bf9150c1219c9ba9fd055908ba90c9942315331"     -- trouve-le dans KeyAuth "App Credentials"
-local version = "1.0"
-
-local key = _G.Key -- clé entrée par l'utilisateur
-
+-- =========================================================
+-- KEYAUTH CHECK
+-- =========================================================
+local License = _G.Key or "" -- clé entrée par l'utilisateur
 local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+local AppName = "OverScyth"
+local OwnerID = "S23XTKpUTe"
+local APPVersion = "1.0"
 
-local function request(url)
-    local res = game:HttpGet(url)
-    return HttpService:JSONDecode(res)
+StarterGui:SetCore("SendNotification", {
+	Title = AppName,
+	Text = "Initializing Authentication...",
+	Duration = 5
+})
+
+-- Init
+local initReq = game:HttpGet('https://keyauth.win/api/1.1/?name='..AppName..'&ownerid='..OwnerID..'&type=init&ver='..APPVersion)
+if initReq == "KeyAuth_Invalid" then
+	game.Players.LocalPlayer:Kick("Application not found!")
+	return
 end
 
--- 🔹 Init obligatoire avant login
-local initURL = string.format(
-    "https://keyauth.win/api/1.2/?type=init&name=%s&ownerid=%s&ver=%s",
-    name, ownerid, version
-)
-
-local init = request(initURL)
-if not init.success then
-    game.Players.LocalPlayer:Kick("❌ KeyAuth Init Error : " .. init.message)
-    return
+local initData = HttpService:JSONDecode(initReq)
+if not initData.success then
+	game.Players.LocalPlayer:Kick("Init Error: "..initData.message)
+	return
 end
 
--- 🔹 Vérification de clé
-local loginURL = string.format(
-    "https://keyauth.win/api/1.2/?type=login&name=%s&ownerid=%s&key=%s",
-    name, ownerid, key
-)
+local sessionid = initData.sessionid
 
-local auth = request(loginURL)
+-- Vérifier la clé
+local licenseReq = game:HttpGet('https://keyauth.win/api/1.1/?name='..AppName..'&ownerid='..OwnerID..'&type=license&key='..License..'&ver='..APPVersion..'&sessionid='..sessionid)
+local licenseData = HttpService:JSONDecode(licenseReq)
 
-if not auth.success then
-    game.Players.LocalPlayer:Kick("❌ Invalid Key : " .. auth.message)
-    return
+if not licenseData.success then
+	game.Players.LocalPlayer:Kick("Key Invalid: "..licenseData.message)
+	return
 end
 
-print("✔ Key Valid - Script Loading...")
+StarterGui:SetCore("SendNotification", {
+	Title = AppName,
+	Text = "Successfully Authorized :)",
+	Duration = 5
+})
+
+print("✔ Logged in as: "..licenseData.info.username)
+-- =========================================================
 
 -- =========================================================
 -- CHARGEMENT DE FLUENT ET INTERFACE
