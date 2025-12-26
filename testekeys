@@ -1,71 +1,102 @@
-local KeyFile = "OmegaAuthKey.txt"
-local License
+--=============================--
+--  🔐 OmegaHub - KeyAuth Loader
+--=============================--
 
+if getgenv().Omega_LoaderRan then
+    return warn("⛔ Loader déjà exécuté.")
+end
+getgenv().Omega_LoaderRan = true
+
+--=============================--
+-- 📁 Gestion Key & Fichier
+--=============================--
+local KeyFile = "OmegaAuthKey.txt"
+local License = nil
+
+-- Lecteur de clé locale sinon prend _G.Key
 if pcall(function() return readfile(KeyFile) end) then
     License = readfile(KeyFile)
-    print("[KEY LOADED] -> "..License)
+    print("[KEY LOADED] → "..License)
 else
     License = _G.Key or nil
 end
 
 if not License or License == "" then
-    game.Players.LocalPlayer:Kick("⚠ You must enter _G.Key before executing.")
+    game.Players.LocalPlayer:Kick("⚠ Entrez votre clé via _G.Key avant d'exécuter.")
     return
 end
 
+--=============================--
+-- 🔑 KeyAuth Informations
+--=============================--
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 
-local AppName   = "OverScyth"
-local OwnerID   = "S23XTKpUTe"
-local APPVersion = "1.0"
+local AppName     = "OverScyth"          -- NOM dans KeyAuth
+local OwnerID     = "S23XTKpUTe"         -- OWNER ID KeyAuth
+local APPVersion  = "1.0"                -- version API
 
-local ok, HWID = pcall(function()
-    return game:GetService("RbxAnalyticsService"):GetClientId()
+--=============================--
+-- 🖥 HWID LOCK
+--=============================--
+local HWID = "UNKNOWN"
+pcall(function()
+    HWID = game:GetService("RbxAnalyticsService"):GetClientId()
 end)
-if not ok then HWID = "NoHWID" end
 
-StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
+--=============================--
+StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Vérification de licence...",Duration=4})
 
+--=============================--
+-- 🔥 INIT SESSION
+--=============================--
 local initReq = game:HttpGet("https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion)
-local initData = HttpService:JSONDecode(initReq)
+local init = HttpService:JSONDecode(initReq)
 
-if not initData.success then
-    game.Players.LocalPlayer:Kick("❌ INIT ERROR: "..initData.message)
+if not init.success then
+    game.Players.LocalPlayer:Kick("❌ INIT ERROR ➜ "..init.message)
     return
 end
 
-local sessionid = initData.sessionid
+local session = init.sessionid
 
-local licenseReq = game:HttpGet(
-    "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=license"..
-    "&key="..License.."&hwid="..HWID.."&sessionid="..sessionid.."&ver="..APPVersion
+--=============================--
+-- 🔥 Vérification licence (+ HWID LOCK)
+--=============================--
+local authReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?name="..AppName..
+    "&ownerid="..OwnerID.."&type=license"..
+    "&key="..License.."&hwid="..HWID..
+    "&sessionid="..session.."&ver="..APPVersion
 )
 
-local licenseData = HttpService:JSONDecode(licenseReq)
+local auth = HttpService:JSONDecode(authReq)
 
-if not licenseData.success then
-    game.Players.LocalPlayer:Kick("❌ BAD KEY: "..licenseData.message)
+if not auth.success then
+    game.Players.LocalPlayer:Kick("🚫 LICENCE ERROR ➜ "..auth.message)
     return
 end
 
+--=============================--
+-- 💾 Sauvegarde KEY AUTO
+--=============================--
 pcall(function()
     writefile(KeyFile, License)
     print("[KEY SAVED] ✔")
 end)
 
-StarterGui:SetCore("SendNotification",{Title="✔ AUTH SUCCESS",Text="Welcome "..licenseData.info.username,Duration=5})
-print("\nAUTH SUCCESS ✔")
+StarterGui:SetCore("SendNotification",{Title="✔ Auth OK",Text="Bienvenue "..auth.info.username,Duration=4})
+print("🎉 AUTHENTIFICATION RÉUSSIE\n")
 
--- =========================================================
--- CHARGEMENT DE FLUENT ET INTERFACE
--- =========================================================
+--=============================--
+-- 🔽 CHARGEMENT INTERFACE
+--=============================--
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
 
 local Window = Fluent:CreateWindow({
-   Title = "Test System Keys",
+   Title = "OmegaHub | Key System",
    TabWidth = 160,
    Size = UDim2.fromOffset(580, 460),
    Theme = "Dark",
@@ -74,16 +105,13 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-    Raid = Window:AddTab({ Title = "Raid", Icon = "sword" }),
-    Players = Window:AddTab({Title = "Player", Icon = "layers" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
+    Main     = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
+    Raid     = Window:AddTab({ Title = "Raid", Icon = "sword" }),
+    Players  = Window:AddTab({ Title = "Player", Icon = "layers" }),
+    Misc     = Window:AddTab({ Title = "Misc", Icon = "flame" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
--- =========================================================
--- CONFIGURATION SYSTEM
--- =========================================================
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
@@ -91,3 +119,5 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 Window:SelectTab(1)
+
+print("🟢 Interface chargée avec succès !")
