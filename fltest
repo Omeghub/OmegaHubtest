@@ -1,3 +1,38 @@
+--======================
+-- 🔁 AUTO RE-INJECT ULTRA SAFE
+--======================
+
+if getgenv().ReinjectLoaded then return end
+getgenv().ReinjectLoaded = true
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local ScriptURL = "https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/fltest"
+
+local queue = queue_on_teleport 
+           or (syn and syn.queue_on_teleport) 
+           or (fluxus and fluxus.queue_on_teleport) 
+           or queueonteleport
+
+if not queue then
+    warn("❌ Auto ReInject non supporté par cet executor.")
+    return
+end
+
+local TeleportQueued = false
+
+LocalPlayer.OnTeleport:Connect(function()
+    if TeleportQueued then return end
+    TeleportQueued = true
+
+    queue([[
+        repeat task.wait() until game:IsLoaded()
+        task.wait(2)
+        loadstring(game:HttpGet("]]..ScriptURL..[[", true))()
+    ]])
+end)
+
 -- =========================================================
 -- UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -5,7 +40,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/I
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
 
 local Window = Fluent:CreateWindow({
-   Title = "EZ | Dungeon Heroes",
+   Title = "OmegaHub | Fabled-Legacy",
    TabWidth = 160,
    Size = UDim2.fromOffset(580, 460),
    Theme = "Dark",
@@ -15,6 +50,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
+    Stats = Window:AddTab({ Title = "Stats", Icon = "sword" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
@@ -29,46 +65,34 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
--- =========================================================
--- SETTINGS
 local AutoFarm = false
 local AutoSpell = false
+local AutoStartDungeon = false
 
-local AttackDelay = 1         -- Swing toutes les 1 sec après TP
+local AttackDelay = 1 
 local SpellDelay = 0.05
-local HeightAboveMob = 7
+local HeightAboveMob = 25
 
 local Character, HRP
+local CurrentTarget = nil
 local HeartbeatConnection
 
--- =========================================================
--- UTIL: GetModelRoot (pour TP même si pas de PrimaryPart)
 local function GetModelRoot(model)
     if model.PrimaryPart then return model.PrimaryPart end
-    -- Cherche un descendant contenant "root"
-    for _, v in pairs(model:GetDescendants()) do
-        if v:IsA("BasePart") and v.Name:lower():find("root") then
-            return v
-        end
+    for _, v in ipairs(model:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name:lower():find("root") then return v end
     end
-    -- Sinon prends juste le premier BasePart
-    for _, v in pairs(model:GetDescendants()) do
-        if v:IsA("BasePart") then
-            return v
-        end
+    for _, v in ipairs(model:GetDescendants()) do
+        if v:IsA("BasePart") then return v end
     end
     return nil
 end
 
--- =========================================================
--- CHARACTER SETUP
 local function SetupCharacter(char)
     Character = char
     HRP = char:WaitForChild("HumanoidRootPart")
 
-    if HeartbeatConnection then
-        HeartbeatConnection:Disconnect()
-    end
+    if HeartbeatConnection then HeartbeatConnection:Disconnect() end
 
     HeartbeatConnection = RunService.Heartbeat:Connect(function()
         if not AutoFarm or not HRP then return end
@@ -78,7 +102,7 @@ local function SetupCharacter(char)
 
         local closest, shortest = nil, math.huge
 
-        for _, mob in pairs(enemies:GetChildren()) do
+        for _, mob in ipairs(enemies:GetChildren()) do
             if mob:IsA("Model") then
                 local hum = mob:FindFirstChildOfClass("Humanoid")
                 local root = GetModelRoot(mob)
@@ -93,25 +117,26 @@ local function SetupCharacter(char)
             end
         end
 
-        -- TP sur le premier mob trouvé
         if closest then
+            CurrentTarget = closest
             HRP.CFrame = closest.CFrame * CFrame.new(0, HeightAboveMob, 0)
 
-            -- Lance le Swing après 1 seconde
             task.spawn(function()
-                task.wait(1)
+                task.wait(AttackDelay)
                 ReplicatedStorage:WaitForChild("Swing"):FireServer()
             end)
+        else
+            CurrentTarget = nil
         end
     end)
 end
 
--- =========================================================
--- AUTO SPELL (Q / E) - SIMULATION CLAVIER
+if LocalPlayer.Character then SetupCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(function(c) task.wait(.5) SetupCharacter(c) end)
+
 task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if not AutoFarm or not AutoSpell then continue end
+    while task.wait(0.1) do
+        if not AutoSpell or not CurrentTarget then continue end
 
         local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
         if cdQ and cdQ.Value <= 0 then
@@ -129,36 +154,45 @@ task.spawn(function()
     end
 end)
 
--- =========================================================
--- CHARACTER EVENTS
-if LocalPlayer.Character then
-    SetupCharacter(LocalPlayer.Character)
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    SetupCharacter(char)
-end)
-
--- =========================================================
--- UI TOGGLES
 Tabs.Main:AddToggle("AutoFarmTP", {
-    Title = "Auto Farm TP + Swing",
-    Description = "TP mobs + Swing auto 1s après",
+    Title = "Auto Farm TP",
+    Description = "TP au mob + auto swing",
     Default = false,
-    Callback = function(Value)
-        AutoFarm = Value
+    Callback = function(v)
+        AutoFarm = v
+        AutoStartDungeon = v 
     end
 })
 
 Tabs.Main:AddToggle("AutoSpell", {
-    Title = "Auto Spell (Q / E)",
-    Description = "Lance Q et E automatiquement (sans remote)",
+    Title = "Auto Spell Q/E",
+    Description = "Spell auto seulement sur ennemi ciblé",
     Default = false,
-    Callback = function(Value)
-        AutoSpell = Value
+    Callback = function(v)
+        AutoSpell = v
     end
 })
+
+-- =========================================================
+-- AUTO START DUNGEON LORSQUE AUTO FARM ON
+task.spawn(function()
+    while task.wait(0.3) do
+        if not AutoStartDungeon then continue end
+
+        local gui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not gui then continue end
+
+        local mainGui = gui:FindFirstChild("mainGui")
+        if not mainGui then continue end
+
+        local startBtn = mainGui:FindFirstChild("startDungeon")
+        if startBtn and startBtn.Visible then
+            ReplicatedStorage.StartDungeon:FireServer(true)
+        end
+    end
+end)
+
+
 
 
 
@@ -173,32 +207,3 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 Window:SelectTab(1)
-
---============================--
--- 🔁 AUTO RE-INJECT SYSTEM
---============================--
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local ScriptURL = "https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/fltest"
-
-local queue = queue_on_teleport or 
-              (syn and syn.queue_on_teleport) or 
-              (fluxus and fluxus.queue_on_teleport) or
-              queueonteleport
-
-local function AutoReInject()
-    if not queue then
-        warn("⚠ Re-Inject Unsupported on this executor.")
-        return
-    end
-
-    LocalPlayer.OnTeleport:Connect(function()
-        print("Teleport detected → Script queued for reload.")
-        queue("repeat task.wait() until game:IsLoaded() wait(2) loadstring(game:HttpGet('"..ScriptURL.."'))()")
-    end)
-end
-
-task.spawn(AutoReInject)
-print("🔁 Auto Reinject Active → Script will auto-load after teleport.")
