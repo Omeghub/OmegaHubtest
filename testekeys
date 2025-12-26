@@ -1,49 +1,47 @@
--- =========================================================
--- VARIABLES KEYAUTH
--- =========================================================
-local name = "OverScyth"        -- Nom de l'app KeyAuth
+--=====================================================
+-- KEYAUTH SYSTEM
+--=====================================================
+
+local name = "OverScyth"        -- Nom de ton App
 local ownerid = "S23XTKpUTe"    -- OwnerID
+local secret = "a7a2a5ecfa65be6080ffbd7d7bf9150c1219c9ba9fd055908ba90c9942315331"     -- trouve-le dans KeyAuth "App Credentials"
 local version = "1.0"
-local key = _G.Key               -- La clé que l'utilisateur doit définir dans son exe
+
+local key = _G.Key -- clé entrée par l'utilisateur
 
 local HttpService = game:GetService("HttpService")
 
--- Fonction pour vérifier la clé
-local function CheckKey(key)
-    local url = string.format(
-        "https://keyauth.win/api/1.2/?type=login&name=%s&ownerid=%s&key=%s",
-        name,
-        ownerid,
-        key
-    )
-    local success, response = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
-    if not success then
-        return false, "Erreur HTTP"
-    end
-    if response.success then
-        return true, "Clé valide !"
-    else
-        return false, response.message
-    end
+local function request(url)
+    local res = game:HttpGet(url)
+    return HttpService:JSONDecode(res)
 end
 
--- Vérification avant de lancer le script
-if not key then
-    warn("❌ Clé non définie !")
-    game.Players.LocalPlayer:Kick("Vous devez entrer votre clé dans le script !")
+-- 🔹 Init obligatoire avant login
+local initURL = string.format(
+    "https://keyauth.win/api/1.2/?type=init&name=%s&ownerid=%s&ver=%s",
+    name, ownerid, version
+)
+
+local init = request(initURL)
+if not init.success then
+    game.Players.LocalPlayer:Kick("❌ KeyAuth Init Error : " .. init.message)
     return
 end
 
-local valid, msg = CheckKey(key)
-if not valid then
-    warn("❌ Clé invalide : " .. msg)
-    game.Players.LocalPlayer:Kick("Clé invalide !")
+-- 🔹 Vérification de clé
+local loginURL = string.format(
+    "https://keyauth.win/api/1.2/?type=login&name=%s&ownerid=%s&key=%s",
+    name, ownerid, key
+)
+
+local auth = request(loginURL)
+
+if not auth.success then
+    game.Players.LocalPlayer:Kick("❌ Invalid Key : " .. auth.message)
     return
 end
 
-print("✔ Clé valide, chargement du script...")
+print("✔ Key Valid - Script Loading...")
 
 -- =========================================================
 -- CHARGEMENT DE FLUENT ET INTERFACE
