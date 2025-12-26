@@ -1,46 +1,54 @@
--- =========================================================
--- KEYAUTH + HWID LOCK
--- =========================================================
-local License = _G.Key or ""  -- l'utilisateur doit mettre sa key ici
-local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
+-- ==============================
+-- AUTO SAVE KEY + HWID LOCK
+-- ==============================
 
--- =================  CONFIG KEYAUTH  =================
-local AppName   = "OverScyth"        -- Nom de ton app KeyAuth
-local OwnerID   = "S23XTKpUTe"       -- OwnerID KeyAuth
-local APPVersion = "1.0"
+local KeyFile = "OmegaAuthKey.txt"  -- Nom du fichier sauvegardé
+local License
 
--- ========= Récupération HWID (important pour HWID LOCK) =========
-local success, HWID = pcall(function()
-    return game:GetService("RbxAnalyticsService"):GetClientId()
-end)
-
-if not success then
-    HWID = "Unknown-HWID"
+-- Charger clef si elle existe
+if pcall(function() return readfile(KeyFile) end) then
+    License = readfile(KeyFile)
+    print("[KEY LOADED] -> "..License)
+else
+    License = _G.Key or nil -- si nouvelle exécution, l'utilisateur doit mettre _G.Key
 end
 
-StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
-
--- ================== INIT ==================
-local initReq = game:HttpGet(
-    "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion
-)
-
-if initReq == "KeyAuth_Invalid" then
-    game.Players.LocalPlayer:Kick("❌ Application not found / invalid !")
+if not License or License == "" then
+    game.Players.LocalPlayer:Kick("⚠ Vous devez mettre _G.Key avant d'exécuter.")
     return
 end
 
+
+-- KEYAUTH SYSTEM
+local HttpService = game:GetService("HttpService")
+local StarterGui = game:GetService("StarterGui")
+
+local AppName   = "OverScyth"
+local OwnerID   = "S23XTKpUTe"
+local APPVersion = "1.0"
+
+-- HWID
+local ok, HWID = pcall(function()
+    return game:GetService("RbxAnalyticsService"):GetClientId()
+end)
+if not ok then HWID = "NoHWID" end
+
+StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
+
+
+-- INIT
+local initReq = game:HttpGet("https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion)
 local initData = HttpService:JSONDecode(initReq)
+
 if not initData.success then
-    game.Players.LocalPlayer:Kick("❌ Init error: "..initData.message)
+    game.Players.LocalPlayer:Kick("❌ INIT ERROR: "..initData.message)
     return
 end
 
 local sessionid = initData.sessionid
 
--- ================== CHECK LICENSE + HWID ==================
 
+-- LICENSE CHECK + HWID LOCK
 local licenseReq = game:HttpGet(
     "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=license"..
     "&key="..License.."&hwid="..HWID.."&sessionid="..sessionid.."&ver="..APPVersion
@@ -49,18 +57,27 @@ local licenseReq = game:HttpGet(
 local licenseData = HttpService:JSONDecode(licenseReq)
 
 if not licenseData.success then
-    game.Players.LocalPlayer:Kick("❌ Key Unauthorized : "..licenseData.message)
+    game.Players.LocalPlayer:Kick("❌ BAD KEY: "..licenseData.message)
     return
 end
 
+
+-- ==============================
+-- SAUVEGARDE AUTOMATIQUE DE KEY
+-- ==============================
+pcall(function()
+    writefile(KeyFile, License)
+    print("[KEY SAVED] ✔")
+end)
+
 StarterGui:SetCore("SendNotification",{Title="✔ AUTH SUCCESS",Text="Welcome "..licenseData.info.username,Duration=5})
-print("Connected ✔")
+print("\nAUTH SUCCESS ✔")
 print("User:",licenseData.info.username)
 print("HWID:",HWID)
 
--- Ici, ton script se lance SEULEMENT si la Key + HWID sont validés.
--- ========================================================
 
+-- ICI COMMENCE TON SCRIPT
+-- ======================================================
 
 -- =========================================================
 -- CHARGEMENT DE FLUENT ET INTERFACE
