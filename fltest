@@ -1,139 +1,171 @@
 -- =========================================================
+-- UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
 
 local Window = Fluent:CreateWindow({
-   Title = "Omega Hub I Dungeon Heroes",
+   Title = "EZ | Dungeon Heroes",
    TabWidth = 160,
    Size = UDim2.fromOffset(580, 460),
    Theme = "Dark",
    Acrylic = false,
-   MinimizeKey = Enum.KeyCode.End 
-})
-
-Fluent:Notify({
-   Title = "Notification",
-   Content = "Script injected :)",
-   Duration = 2
+   MinimizeKey = Enum.KeyCode.End
 })
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-    Raid = Window:AddTab({ Title = "Raid", Icon = "sword" }),
-    Players = Window:AddTab({Title = "Player", Icon = "layers" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
- }
--- =========================================================
--- AUTO ATTACK + AUTO SKILL (NO TP / NO MOVE)
--- =========================================================
+}
 
+-- =========================================================
+-- SERVICES
 repeat task.wait() until game:IsLoaded()
 
--- SERVICES
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 
+-- =========================================================
 -- SETTINGS
-local AutoAttack = false
-local AttackDelay = 0.12 -- SAFE
+local AutoFarm = false
+local AutoSpell = false
+
+local AttackDelay = 1         -- Swing toutes les 1 sec après TP
+local SpellDelay = 0.05
+local HeightAboveMob = 7
+
+local Character, HRP
+local HeartbeatConnection
 
 -- =========================================================
--- AUTO LOOP
--- =========================================================
+-- UTIL: GetModelRoot (pour TP même si pas de PrimaryPart)
+local function GetModelRoot(model)
+    if model.PrimaryPart then return model.PrimaryPart end
+    -- Cherche un descendant contenant "root"
+    for _, v in pairs(model:GetDescendants()) do
+        if v:IsA("BasePart") and v.Name:lower():find("root") then
+            return v
+        end
+    end
+    -- Sinon prends juste le premier BasePart
+    for _, v in pairs(model:GetDescendants()) do
+        if v:IsA("BasePart") then
+            return v
+        end
+    end
+    return nil
+end
 
+-- =========================================================
+-- CHARACTER SETUP
+local function SetupCharacter(char)
+    Character = char
+    HRP = char:WaitForChild("HumanoidRootPart")
+
+    if HeartbeatConnection then
+        HeartbeatConnection:Disconnect()
+    end
+
+    HeartbeatConnection = RunService.Heartbeat:Connect(function()
+        if not AutoFarm or not HRP then return end
+
+        local enemies = workspace:FindFirstChild("Enemies")
+        if not enemies then return end
+
+        local closest, shortest = nil, math.huge
+
+        for _, mob in pairs(enemies:GetChildren()) do
+            if mob:IsA("Model") then
+                local hum = mob:FindFirstChildOfClass("Humanoid")
+                local root = GetModelRoot(mob)
+
+                if hum and hum.Health > 0 and root then
+                    local dist = (root.Position - HRP.Position).Magnitude
+                    if dist < shortest then
+                        shortest = dist
+                        closest = root
+                    end
+                end
+            end
+        end
+
+        -- TP sur le premier mob trouvé
+        if closest then
+            HRP.CFrame = closest.CFrame * CFrame.new(0, HeightAboveMob, 0)
+
+            -- Lance le Swing après 1 seconde
+            task.spawn(function()
+                task.wait(1)
+                ReplicatedStorage:WaitForChild("Swing"):FireServer()
+            end)
+        end
+    end)
+end
+
+-- =========================================================
+-- AUTO SPELL (Q / E) - SIMULATION CLAVIER
 task.spawn(function()
     while true do
-        task.wait(AttackDelay)
+        task.wait(0.1)
+        if not AutoFarm or not AutoSpell then continue end
 
-        if not AutoAttack then
-            continue
-        end
-
-        -- AUTO CLICK (ATTAQUE BASIQUE)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
-        -- AUTO SKILL Q
         local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
         if cdQ and cdQ.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("Q")
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+            task.wait(SpellDelay)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
         end
 
-        -- AUTO SKILL E
         local cdE = LocalPlayer:FindFirstChild("cooldownE")
         if cdE and cdE.Value <= 0 then
-            ReplicatedStorage:WaitForChild("useSpell"):FireServer("E")
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(SpellDelay)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         end
     end
 end)
 
 -- =========================================================
--- UI TOGGLE
--- =========================================================
-
-Tabs.Main:AddToggle("AutoAttackSkill", {
-    Title = "Auto Attack + Skill",
-    Description = "Auto click + Q / E (sans TP)",
-    Default = false,
-    Callback = function(Value)
-        AutoAttack = Value
-    end
-})
-
-
-
-
-
-
-
-
--- =========================================================
--- AUTO RE-INJECTIONS AUTOMATIQUE
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local AutoReInjectEnabled = false
-local TeleportCheck = false
-
-local queueteleport = queue_on_teleport or 
-                      (syn and syn.queue_on_teleport) or 
-                      (fluxus and fluxus.queue_on_teleport) or
-                      queueonteleport
-
-local ScriptURL = "URL Game Script"
-
-if queueteleport then
-    LocalPlayer.OnTeleport:Connect(function(State)
-        if AutoReInjectEnabled and not TeleportCheck then
-            TeleportCheck = true
-            local code = "repeat task.wait() until game:IsLoaded() wait(2) loadstring(game:HttpGet('" .. ScriptURL .. "'))()"
-            queueteleport(code)
-        end
-    end)
+-- CHARACTER EVENTS
+if LocalPlayer.Character then
+    SetupCharacter(LocalPlayer.Character)
 end
 
-Tabs.Misc:AddToggle("AutoReInject", {
-    Title = "Auto Re-inject",
-    Description = "Automatically re-inject script after teleporting",
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    SetupCharacter(char)
+end)
+
+-- =========================================================
+-- UI TOGGLES
+Tabs.Main:AddToggle("AutoFarmTP", {
+    Title = "Auto Farm TP + Swing",
+    Description = "TP mobs + Swing auto 1s après",
     Default = false,
     Callback = function(Value)
-        if not queueteleport then
-            return
-        end
-        
-        AutoReInjectEnabled = Value
-        TeleportCheck = false
+        AutoFarm = Value
     end
 })
 
--- =========================================================
--- CONFIG SYSTEM
+Tabs.Main:AddToggle("AutoSpell", {
+    Title = "Auto Spell (Q / E)",
+    Description = "Lance Q et E automatiquement (sans remote)",
+    Default = false,
+    Callback = function(Value)
+        AutoSpell = Value
+    end
+})
 
+
+
+
+
+-- =========================================================
+-- CONFIG
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
@@ -142,95 +174,31 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 Window:SelectTab(1)
 
-
--- =========================
--- MOBILE / PC BUTTON
+--============================--
+-- 🔁 AUTO RE-INJECT SYSTEM
+--============================--
 
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local LocalPlayer = Players.LocalPlayer
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "FluentMobileButton"
-screenGui.Parent = playerGui
-screenGui.ResetOnSpawn = false
+local ScriptURL = "https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/fltest"
 
-local openButton = Instance.new("ImageButton")
-openButton.Size = UDim2.new(0, 40, 0, 40)
-openButton.Position = UDim2.new(0, 10, 0, 10)
-openButton.BackgroundColor3 = Color3.fromRGB(0,0,0)
-openButton.BackgroundTransparency = 0.5
-openButton.Image = "rbxassetid://133520358863074"
-openButton.ScaleType = Enum.ScaleType.Fit
-openButton.BorderSizePixel = 0
-openButton.Parent = screenGui
-openButton.ZIndex = 10
+local queue = queue_on_teleport or 
+              (syn and syn.queue_on_teleport) or 
+              (fluxus and fluxus.queue_on_teleport) or
+              queueonteleport
 
-local uicorner = Instance.new("UICorner")
-uicorner.CornerRadius = UDim.new(0, 20)
-uicorner.Parent = openButton
-
-local dragging
-local dragInput
-local dragStart
-local startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    openButton.Position = UDim2.new(
-        startPos.X.Scale, startPos.X.Offset + delta.X,
-        startPos.Y.Scale, startPos.Y.Offset + delta.Y
-    )
-end
-
-openButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = openButton.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
+local function AutoReInject()
+    if not queue then
+        warn("⚠ Re-Inject Unsupported on this executor.")
+        return
     end
-end)
 
-openButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
-openButton.MouseButton1Click:Connect(function()
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
-end)
-
-local function removeButton()
-    if openButton and openButton.Parent then
-        openButton:Destroy()
-    end
-end
-
-if Window.UI and Window.UI.CloseButton then
-    Window.UI.CloseButton.MouseButton1Click:Connect(function()
-        removeButton()
+    LocalPlayer.OnTeleport:Connect(function()
+        print("Teleport detected → Script queued for reload.")
+        queue("repeat task.wait() until game:IsLoaded() wait(2) loadstring(game:HttpGet('"..ScriptURL.."'))()")
     end)
-else
-    if Window.OnClose then
-        local oldClose = Window.OnClose
-        Window.OnClose = function()
-            removeButton()
-            if oldClose then oldClose() end
-        end
-    end
 end
+
+task.spawn(AutoReInject)
+print("🔁 Auto Reinject Active → Script will auto-load after teleport.")
