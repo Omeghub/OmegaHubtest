@@ -1,25 +1,18 @@
--- ==============================
--- AUTO SAVE KEY + HWID LOCK
--- ==============================
-
-local KeyFile = "OmegaAuthKey.txt"  -- Nom du fichier sauvegardé
+local KeyFile = "OmegaAuthKey.txt"
 local License
 
--- Charger clef si elle existe
 if pcall(function() return readfile(KeyFile) end) then
     License = readfile(KeyFile)
     print("[KEY LOADED] -> "..License)
 else
-    License = _G.Key or nil -- si nouvelle exécution, l'utilisateur doit mettre _G.Key
+    License = _G.Key or nil
 end
 
 if not License or License == "" then
-    game.Players.LocalPlayer:Kick("⚠ Vous devez mettre _G.Key avant d'exécuter.")
+    game.Players.LocalPlayer:Kick("⚠ You must enter _G.Key before executing.")
     return
 end
 
-
--- KEYAUTH SYSTEM
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 
@@ -27,7 +20,6 @@ local AppName   = "OverScyth"
 local OwnerID   = "S23XTKpUTe"
 local APPVersion = "1.0"
 
--- HWID
 local ok, HWID = pcall(function()
     return game:GetService("RbxAnalyticsService"):GetClientId()
 end)
@@ -35,8 +27,6 @@ if not ok then HWID = "NoHWID" end
 
 StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
 
-
--- INIT
 local initReq = game:HttpGet("https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion)
 local initData = HttpService:JSONDecode(initReq)
 
@@ -47,8 +37,6 @@ end
 
 local sessionid = initData.sessionid
 
-
--- LICENSE CHECK + HWID LOCK
 local licenseReq = game:HttpGet(
     "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=license"..
     "&key="..License.."&hwid="..HWID.."&sessionid="..sessionid.."&ver="..APPVersion
@@ -61,10 +49,6 @@ if not licenseData.success then
     return
 end
 
-
--- ==============================
--- SAUVEGARDE AUTOMATIQUE DE KEY
--- ==============================
 pcall(function()
     writefile(KeyFile, License)
     print("[KEY SAVED] ✔")
@@ -72,12 +56,6 @@ end)
 
 StarterGui:SetCore("SendNotification",{Title="✔ AUTH SUCCESS",Text="Welcome "..licenseData.info.username,Duration=5})
 print("\nAUTH SUCCESS ✔")
-print("User:",licenseData.info.username)
-print("HWID:",HWID)
-
-
--- ICI COMMENCE TON SCRIPT
--- ======================================================
 
 -- =========================================================
 -- CHARGEMENT DE FLUENT ET INTERFACE
@@ -113,5 +91,3 @@ InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 SaveManager:LoadAutoloadConfig()
 Window:SelectTab(1)
-
-print("🎉 Script chargé avec KeyAuth activé !")
