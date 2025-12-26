@@ -1,7 +1,3 @@
---======================
--- 🔁 AUTO RE-INJECT ULTRA SAFE
---======================
-
 if getgenv().ReinjectLoaded then return end
 getgenv().ReinjectLoaded = true
 
@@ -176,7 +172,7 @@ Tabs.Main:AddToggle("AutoSpell", {
 -- =========================================================
 -- AUTO START DUNGEON LORSQUE AUTO FARM ON
 task.spawn(function()
-    while task.wait(0.3) do
+    while task.wait(0.5) do
         if not AutoStartDungeon then continue end
 
         local gui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -191,6 +187,49 @@ task.spawn(function()
         end
     end
 end)
+
+-- =========================================================
+-- AUTO RETRY
+local AutoRetry = false
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+
+        if not AutoRetry then continue end
+
+        local gui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not gui then continue end
+
+        local completionScreen = gui:FindFirstChild("CompletionScreen")
+        if not completionScreen then continue end
+
+        local failedFrame = completionScreen:FindFirstChild("failedFrame")
+        if not failedFrame then continue end
+
+        local retryBtn = failedFrame:FindFirstChild("Retry")
+        if retryBtn and retryBtn.Visible then
+
+            local args = {"repeat"}
+            local voteRemote = ReplicatedStorage:WaitForChild("voteRemote")
+            pcall(function()
+                voteRemote:FireServer(unpack(args))
+            end)
+        end
+    end
+end)
+
+Tabs.Main:AddToggle("AutoRetry", {
+    Title = "Auto Retry",
+    Description = "Automatically retry when failed screen appears",
+    Default = false,
+    Callback = function(v)
+        AutoRetry = v
+    end
+})
 
 
 
