@@ -1,0 +1,83 @@
+-- =========================================================
+-- VARIABLES KEYAUTH
+-- =========================================================
+local name = "OverScyth"        -- Nom de l'app KeyAuth
+local ownerid = "S23XTKpUTe"    -- OwnerID
+local version = "1.0"
+local key = _G.Key               -- La clé que l'utilisateur doit définir dans son exe
+
+local HttpService = game:GetService("HttpService")
+
+-- Fonction pour vérifier la clé
+local function CheckKey(key)
+    local url = string.format(
+        "https://keyauth.win/api/1.2/?type=login&name=%s&ownerid=%s&key=%s",
+        name,
+        ownerid,
+        key
+    )
+    local success, response = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+    if not success then
+        return false, "Erreur HTTP"
+    end
+    if response.success then
+        return true, "Clé valide !"
+    else
+        return false, response.message
+    end
+end
+
+-- Vérification avant de lancer le script
+if not key then
+    warn("❌ Clé non définie !")
+    game.Players.LocalPlayer:Kick("Vous devez entrer votre clé dans le script !")
+    return
+end
+
+local valid, msg = CheckKey(key)
+if not valid then
+    warn("❌ Clé invalide : " .. msg)
+    game.Players.LocalPlayer:Kick("Clé invalide !")
+    return
+end
+
+print("✔ Clé valide, chargement du script...")
+
+-- =========================================================
+-- CHARGEMENT DE FLUENT ET INTERFACE
+-- =========================================================
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
+
+local Window = Fluent:CreateWindow({
+   Title = "Test System Keys",
+   TabWidth = 160,
+   Size = UDim2.fromOffset(580, 460),
+   Theme = "Dark",
+   Acrylic = false,
+   MinimizeKey = Enum.KeyCode.End 
+})
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
+    Raid = Window:AddTab({ Title = "Raid", Icon = "sword" }),
+    Players = Window:AddTab({Title = "Player", Icon = "layers" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "flame" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+-- =========================================================
+-- CONFIGURATION SYSTEM
+-- =========================================================
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
+Window:SelectTab(1)
+
+print("🎉 Script chargé avec KeyAuth activé !")
