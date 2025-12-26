@@ -1,51 +1,66 @@
 -- =========================================================
--- KEYAUTH CHECK
+-- KEYAUTH + HWID LOCK
 -- =========================================================
-local License = _G.Key or "" -- clé entrée par l'utilisateur
+local License = _G.Key or ""  -- l'utilisateur doit mettre sa key ici
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
-local AppName = "OverScyth"
-local OwnerID = "S23XTKpUTe"
+
+-- =================  CONFIG KEYAUTH  =================
+local AppName   = "OverScyth"        -- Nom de ton app KeyAuth
+local OwnerID   = "S23XTKpUTe"       -- OwnerID KeyAuth
 local APPVersion = "1.0"
 
-StarterGui:SetCore("SendNotification", {
-	Title = AppName,
-	Text = "Initializing Authentication...",
-	Duration = 5
-})
+-- ========= Récupération HWID (important pour HWID LOCK) =========
+local success, HWID = pcall(function()
+    return game:GetService("RbxAnalyticsService"):GetClientId()
+end)
 
--- Init
-local initReq = game:HttpGet('https://keyauth.win/api/1.1/?name='..AppName..'&ownerid='..OwnerID..'&type=init&ver='..APPVersion)
+if not success then
+    HWID = "Unknown-HWID"
+end
+
+StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Checking License...",Duration=5})
+
+-- ================== INIT ==================
+local initReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion
+)
+
 if initReq == "KeyAuth_Invalid" then
-	game.Players.LocalPlayer:Kick("Application not found!")
-	return
+    game.Players.LocalPlayer:Kick("❌ Application not found / invalid !")
+    return
 end
 
 local initData = HttpService:JSONDecode(initReq)
 if not initData.success then
-	game.Players.LocalPlayer:Kick("Init Error: "..initData.message)
-	return
+    game.Players.LocalPlayer:Kick("❌ Init error: "..initData.message)
+    return
 end
 
 local sessionid = initData.sessionid
 
--- Vérifier la clé
-local licenseReq = game:HttpGet('https://keyauth.win/api/1.1/?name='..AppName..'&ownerid='..OwnerID..'&type=license&key='..License..'&ver='..APPVersion..'&sessionid='..sessionid)
+-- ================== CHECK LICENSE + HWID ==================
+
+local licenseReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=license"..
+    "&key="..License.."&hwid="..HWID.."&sessionid="..sessionid.."&ver="..APPVersion
+)
+
 local licenseData = HttpService:JSONDecode(licenseReq)
 
 if not licenseData.success then
-	game.Players.LocalPlayer:Kick("Key Invalid: "..licenseData.message)
-	return
+    game.Players.LocalPlayer:Kick("❌ Key Unauthorized : "..licenseData.message)
+    return
 end
 
-StarterGui:SetCore("SendNotification", {
-	Title = AppName,
-	Text = "Successfully Authorized :)",
-	Duration = 5
-})
+StarterGui:SetCore("SendNotification",{Title="✔ AUTH SUCCESS",Text="Welcome "..licenseData.info.username,Duration=5})
+print("Connected ✔")
+print("User:",licenseData.info.username)
+print("HWID:",HWID)
 
-print("✔ Logged in as: "..licenseData.info.username)
--- =========================================================
+-- Ici, ton script se lance SEULEMENT si la Key + HWID sont validés.
+-- ========================================================
+
 
 -- =========================================================
 -- CHARGEMENT DE FLUENT ET INTERFACE
