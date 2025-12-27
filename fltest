@@ -12,7 +12,6 @@ local queue = queue_on_teleport
            or queueonteleport
 
 if not queue then
-    warn("❌ Auto ReInject non supporté par cet executor.")
     return
 end
 
@@ -132,26 +131,24 @@ LocalPlayer.CharacterAdded:Connect(function(c) task.wait(.5) SetupCharacter(c) e
 task.spawn(function()
     while task.wait(0.1) do
         if not AutoSpell or not CurrentTarget then continue end
-
+        
         local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
         if cdQ and cdQ.Value <= 0 then
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+            ReplicatedStorage.useSpell:FireServer("Q")
             task.wait(SpellDelay)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
         end
 
         local cdE = LocalPlayer:FindFirstChild("cooldownE")
         if cdE and cdE.Value <= 0 then
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            ReplicatedStorage.useSpell:FireServer("E")
             task.wait(SpellDelay)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         end
     end
 end)
 
+
 Tabs.Main:AddToggle("AutoFarmTP", {
     Title = "Auto Farm TP",
-    Description = "TP au mob + auto swing",
     Default = false,
     Callback = function(v)
         AutoFarm = v
@@ -161,7 +158,6 @@ Tabs.Main:AddToggle("AutoFarmTP", {
 
 Tabs.Main:AddToggle("AutoSpell", {
     Title = "Auto Spell Q/E",
-    Description = "Spell auto seulement sur ennemi ciblé",
     Default = false,
     Callback = function(v)
         AutoSpell = v
@@ -225,100 +221,11 @@ end)
 
 Tabs.Main:AddToggle("AutoRetry", {
     Title = "Auto Retry",
-    Description = "Automatically retry when failed screen appears",
     Default = false,
     Callback = function(v)
         AutoRetry = v
     end
 })
-
---========================================================--
--- 🔥 FAKE STATS / NAMEPLATE FULL SYSTEM (AVEC TOGGLE)
-repeat task.wait() until game:IsLoaded()
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Gui = LocalPlayer:WaitForChild("PlayerGui")
-
-local customName  = "OmegaHub"
-local customLevel = "999"
-local customXP    = "Inf"
-local customHP    = "Inf"
-local customImage = "rbxassetid://75306852308197"
-
-local FakeStatsEnabled = false
-
-Tabs.Main:AddToggle("FakeStats", {
-    Title = "Fake Stats UI",
-    Description = "Modifie Stats + Nameplate visuel",
-    Default = false,
-    Callback = function(v)
-        FakeStatsEnabled = v
-        if v then
-        else
-        end
-    end
-})
-
-local function Apply_UI()
-    if not FakeStatsEnabled then return end
-
-    local frame = Gui:FindFirstChild("PlayerData", true)
-    if not frame or not frame:FindFirstChild("Frame") then return end
-
-    local main = frame.Frame
-
-    if main:FindFirstChild("PlayerName") then main.PlayerName.Text = customName end
-    if main:FindFirstChild("levelName")  then main.levelName.Text  = customLevel end
-    if main:FindFirstChild("Xp") and main.Xp:FindFirstChild("xpName") then
-        main.Xp.xpName.Text = customXP
-    end
-    if main:FindFirstChild("Health") and main.Health:FindFirstChild("healthName") then
-        main.Health.healthName.Text = customHP
-    end
-    if main:FindFirstChild("Profile") and main.Profile:FindFirstChild("Profile") then
-        main.Profile.Profile.Image = customImage
-    end
-end
-
-local function Apply_Nameplate()
-    if not FakeStatsEnabled then return end
-    
-    local char = LocalPlayer.Character
-    if not char then return end
-
-    local HRP = char:FindFirstChild("HumanoidRootPart") 
-    if not HRP then return end
-
-    local panel = HRP:FindFirstChild("normalPlayer") 
-    if not panel then return end
-
-    local plate = panel:FindFirstChild("playerNameplate")
-    if not plate then return end
-
-    if plate:FindFirstChild("PlayerName") then plate.PlayerName.Text = customName end
-    if plate:FindFirstChild("level")      then plate.level.Text     = customLevel end
-    if plate:FindFirstChild("Health") and plate.Health:FindFirstChild("healthName") then
-        plate.Health.healthName.Text = customHP
-    end
-end
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if FakeStatsEnabled then
-            Apply_UI()
-            Apply_Nameplate()
-        end
-    end
-end)
-
-LocalPlayer.CharacterAdded:Connect(function()
-    if FakeStatsEnabled then
-        task.wait(1.5)
-        Apply_UI()
-        Apply_Nameplate()
-    end
-end)
 
 -- =========================================================
 -- CONFIG
