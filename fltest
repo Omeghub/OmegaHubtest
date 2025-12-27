@@ -27,7 +27,6 @@ LocalPlayer.OnTeleport:Connect(function()
         loadstring(game:HttpGet("]]..ScriptURL..[[", true))()
     ]])
 end)
-
 -- =========================================================
 -- UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -62,11 +61,12 @@ local AutoFarm = false
 local AutoSpell = false
 local AutoStartDungeon = false
 
-local AttackDelay = 1 
+local AttackDelay = 1
 local SpellDelay = 0.05
 local HeightAboveMob = 25
+local tpSpeed = 200
 
-local Character, HRP
+local Character, HRP, Humanoid
 local CurrentTarget = nil
 local HeartbeatConnection
 
@@ -84,26 +84,34 @@ end
 local function SetupCharacter(char)
     Character = char
     HRP = char:WaitForChild("HumanoidRootPart")
-    local humanoid = char:WaitForChild("Humanoid")
+    Humanoid = char:WaitForChild("Humanoid")
+
+    for _, p in ipairs(Character:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.CanCollide = true
+            p.Massless = false
+        end
+    end
+    Humanoid.PlatformStand = false
 
     if HeartbeatConnection then
         HeartbeatConnection:Disconnect()
     end
 
-    local tpSpeed = 200
-    local oscillationAmplitude = 2
-    local oscillationSpeed = 5
+    HeartbeatConnection = RunService.Heartbeat:Connect(function(delta)
+        if not HRP or not Humanoid then return end
 
-    HeartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        if not HRP or not humanoid then return end
-
-        if not AutoFarm or humanoid.Health <= 0 then
+        if not AutoFarm or Humanoid.Health <= 0 then
             CurrentTarget = nil
             HRP.Velocity = Vector3.zero
-            for _, part in ipairs(Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+            HRP.AssemblyLinearVelocity = Vector3.zero
+            HRP.AssemblyAngularVelocity = Vector3.zero
+            Humanoid.PlatformStand = false
+            Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            Humanoid.WalkSpeed = 16
+            Humanoid.JumpPower = 50
+            for _, p in ipairs(Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
             end
             return
         end
@@ -114,9 +122,9 @@ local function SetupCharacter(char)
         local closest, shortest = nil, math.huge
         for _, mob in ipairs(enemies:GetChildren()) do
             if mob:IsA("Model") then
-                local hum = mob:FindFirstChildOfClass("Humanoid")
+                local h = mob:FindFirstChildOfClass("Humanoid")
                 local root = GetModelRoot(mob)
-                if hum and hum.Health > 0 and root then
+                if h and h.Health > 0 and root then
                     local dist = (root.Position - HRP.Position).Magnitude
                     if dist < shortest then
                         shortest = dist
@@ -128,64 +136,64 @@ local function SetupCharacter(char)
 
         if closest then
             CurrentTarget = closest
-            local timeElapsed = tick()
-            local oscillation = math.sin(timeElapsed * oscillationSpeed) * oscillationAmplitude
-            local targetPos = closest.Position + Vector3.new(0, HeightAboveMob + oscillation, 2)
-            local dir = targetPos - HRP.Position
 
-            for _, part in ipairs(Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+            for _, p in ipairs(Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
             end
 
-            if dir.Magnitude > 1 then
+            local oscillation = math.sin(tick() * 5) * 2
+            local targetPos = closest.Position + Vector3.new(0, HeightAboveMob + oscillation, 2)
+            local dir = targetPos - HRP.Position
+            if dir.Magnitude > 2 then
                 HRP.Velocity = dir.Unit * tpSpeed
             else
                 HRP.Velocity = Vector3.zero
             end
 
-            local lookVector = (Vector3.new(closest.Position.X, HRP.Position.Y, closest.Position.Z) - HRP.Position).Unit
-            HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + lookVector)
+            HRP.CFrame = CFrame.lookAt(HRP.Position, Vector3.new(closest.Position.X, HRP.Position.Y, closest.Position.Z))
 
             task.spawn(function()
                 task.wait(AttackDelay)
-                if ReplicatedStorage:FindFirstChild("Swing") then
-                    ReplicatedStorage.Swing:FireServer()
+                if AutoFarm and CurrentTarget and (CurrentTarget.Position - HRP.Position).Magnitude < 30 then
+                    if ReplicatedStorage:FindFirstChild("Swing") then
+                        ReplicatedStorage.Swing:FireServer()
+                    end
                 end
             end)
+
+            if AutoSpell and (CurrentTarget.Position - HRP.Position).Magnitude < 30 then
+                local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
+                if cdQ and cdQ.Value <= 0 then
+                    ReplicatedStorage.useSpell:FireServer("Q")
+                    task.wait(SpellDelay)
+                end
+                local cdE = LocalPlayer:FindFirstChild("cooldownE")
+                if cdE and cdE.Value <= 0 then
+                    ReplicatedStorage.useSpell:FireServer("E")
+                    task.wait(SpellDelay)
+                end
+            end
         else
             CurrentTarget = nil
+            -- reset collisions et stop mouvement
             HRP.Velocity = Vector3.zero
-            for _, part in ipairs(Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+            HRP.AssemblyLinearVelocity = Vector3.zero
+            HRP.AssemblyAngularVelocity = Vector3.zero
+            Humanoid.PlatformStand = false
+            Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            Humanoid.WalkSpeed = 16
+            Humanoid.JumpPower = 50
+            for _, p in ipairs(Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
             end
         end
     end)
 end
 
-
 if LocalPlayer.Character then SetupCharacter(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(function(c) task.wait(.5) SetupCharacter(c) end)
-
-task.spawn(function()
-    while task.wait(0.1) do
-        if not AutoSpell or not CurrentTarget then continue end
-        
-        local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
-        if cdQ and cdQ.Value <= 0 then
-            ReplicatedStorage.useSpell:FireServer("Q")
-            task.wait(SpellDelay)
-        end
-
-        local cdE = LocalPlayer:FindFirstChild("cooldownE")
-        if cdE and cdE.Value <= 0 then
-            ReplicatedStorage.useSpell:FireServer("E")
-            task.wait(SpellDelay)
-        end
-    end
+LocalPlayer.CharacterAdded:Connect(function(c)
+    task.wait(0.5)
+    SetupCharacter(c)
 end)
 
 Tabs.Main:AddToggle("AutoFarmTP", {
@@ -193,7 +201,7 @@ Tabs.Main:AddToggle("AutoFarmTP", {
     Default = false,
     Callback = function(v)
         AutoFarm = v
-        AutoStartDungeon = v 
+        AutoStartDungeon = v
     end
 })
 
@@ -206,17 +214,14 @@ Tabs.Main:AddToggle("AutoSpell", {
 })
 
 -- =========================================================
--- AUTO START DUNGEON 
+-- AUTO START DUNGEON
 task.spawn(function()
     while task.wait(1) do
         if not AutoStartDungeon then continue end
-
         local gui = LocalPlayer:FindFirstChild("PlayerGui")
         if not gui then continue end
-
         local mainGui = gui:FindFirstChild("mainGui")
         if not mainGui then continue end
-
         local startBtn = mainGui:FindFirstChild("startDungeon")
         if startBtn and startBtn.Visible then
             ReplicatedStorage.StartDungeon:FireServer(true)
