@@ -31,8 +31,8 @@ end)
 -- =========================================================
 -- UI
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/UiSave"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Omeghub/OmegaHubtest/refs/heads/main/Interface"))()
 
 local Window = Fluent:CreateWindow({
    Title = "OmegaHub | Fabled-Legacy",
