@@ -112,7 +112,7 @@ local function SetupCharacter(char)
 
         if closest then
             CurrentTarget = closest
-            HRP.CFrame = closest.CFrame * CFrame.new(0, HeightAboveMob, 0)
+            HRP.CFrame = closest.CFrame * CFrame.new(0, HeightAboveMob, 0.5)
 
             task.spawn(function()
                 task.wait(AttackDelay)
@@ -165,7 +165,7 @@ Tabs.Main:AddToggle("AutoSpell", {
 -- =========================================================
 -- AUTO START DUNGEON 
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(1) do
         if not AutoStartDungeon then continue end
 
         local gui = LocalPlayer:FindFirstChild("PlayerGui")
