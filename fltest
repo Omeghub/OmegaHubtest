@@ -100,6 +100,11 @@ local function SetupCharacter(char)
         if not AutoFarm or humanoid.Health <= 0 then
             CurrentTarget = nil
             HRP.Velocity = Vector3.zero
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
             return
         end
 
@@ -128,6 +133,12 @@ local function SetupCharacter(char)
             local targetPos = closest.Position + Vector3.new(0, HeightAboveMob + oscillation, 2)
             local dir = targetPos - HRP.Position
 
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+
             if dir.Magnitude > 1 then
                 HRP.Velocity = dir.Unit * tpSpeed
             else
@@ -146,9 +157,15 @@ local function SetupCharacter(char)
         else
             CurrentTarget = nil
             HRP.Velocity = Vector3.zero
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
         end
     end)
 end
+
 
 if LocalPlayer.Character then SetupCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(function(c) task.wait(.5) SetupCharacter(c) end)
