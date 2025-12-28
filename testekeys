@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 
-local key = _G.Key or readfile("OmegaAuthKey.txt")
+local key = _G.Key or readfile("OmegKey.txt")
 
 if AuthGuard.ValidateKey({ Service = __SERVICE_ID__, Key = key }) == 'invalid' then
     game.Players.LocalPlayer:Kick("❌ BAD KEY")
