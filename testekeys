@@ -1,123 +1,108 @@
---=============================--
---  🔐 OmegaHub - KeyAuth Loader
---=============================--
+--========================--
+--   KEYAUTH IP CHECK     --
+--========================--
 
-if getgenv().Omega_LoaderRan then
-    return warn("⛔ Loader déjà exécuté.")
-end
-getgenv().Omega_LoaderRan = true
-
---=============================--
--- 📁 Gestion Key & Fichier
---=============================--
 local KeyFile = "OmegaAuthKey.txt"
-local License = nil
+local License
 
--- Lecteur de clé locale sinon prend _G.Key
+-- Load saved key
 if pcall(function() return readfile(KeyFile) end) then
     License = readfile(KeyFile)
-    print("[KEY LOADED] → "..License)
+    print("[KEY LOADED] -> "..License)
 else
-    License = _G.Key or nil
+    License = _G.Key
 end
 
+-- No key
 if not License or License == "" then
-    game.Players.LocalPlayer:Kick("⚠ Entrez votre clé via _G.Key avant d'exécuter.")
+    game.Players.LocalPlayer:Kick("⚠ Please set _G.Key before executing.")
     return
 end
 
---=============================--
--- 🔑 KeyAuth Informations
---=============================--
+-- Services
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
+local Player = game.Players.LocalPlayer
 
-local AppName     = "OverScyth"          -- NOM dans KeyAuth
-local OwnerID     = "S23XTKpUTe"         -- OWNER ID KeyAuth
-local APPVersion  = "1.0"                -- version API
+-- App info
+local AppName    = "OverScyth"
+local OwnerID    = "S23XTKpUTe"
+local AppVersion = "1.0"
 
---=============================--
--- 🖥 HWID LOCK
---=============================--
-local HWID = "UNKNOWN"
-pcall(function()
-    HWID = game:GetService("RbxAnalyticsService"):GetClientId()
-end)
-
---=============================--
-StarterGui:SetCore("SendNotification",{Title="KeyAuth",Text="Vérification de licence...",Duration=4})
-
---=============================--
--- 🔥 INIT SESSION
---=============================--
-local initReq = game:HttpGet("https://keyauth.win/api/1.1/?name="..AppName.."&ownerid="..OwnerID.."&type=init&ver="..APPVersion)
-local init = HttpService:JSONDecode(initReq)
-
-if not init.success then
-    game.Players.LocalPlayer:Kick("❌ INIT ERROR ➜ "..init.message)
-    return
-end
-
-local session = init.sessionid
-
---=============================--
--- 🔥 Vérification licence (+ HWID LOCK)
---=============================--
-local authReq = game:HttpGet(
-    "https://keyauth.win/api/1.1/?name="..AppName..
-    "&ownerid="..OwnerID.."&type=license"..
-    "&key="..License.."&hwid="..HWID..
-    "&sessionid="..session.."&ver="..APPVersion
-)
-
-local auth = HttpService:JSONDecode(authReq)
-
-if not auth.success then
-    game.Players.LocalPlayer:Kick("🚫 LICENCE ERROR ➜ "..auth.message)
-    return
-end
-
---=============================--
--- 💾 Sauvegarde KEY AUTO
---=============================--
-pcall(function()
-    writefile(KeyFile, License)
-    print("[KEY SAVED] ✔")
-end)
-
-StarterGui:SetCore("SendNotification",{Title="✔ Auth OK",Text="Bienvenue "..auth.info.username,Duration=4})
-print("🎉 AUTHENTIFICATION RÉUSSIE\n")
-
---=============================--
--- 🔽 CHARGEMENT INTERFACE
---=============================--
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/addons"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/ImBrokz89/test/main/Maddons"))()
-
-local Window = Fluent:CreateWindow({
-   Title = "OmegaHub | Key System",
-   TabWidth = 160,
-   Size = UDim2.fromOffset(580, 460),
-   Theme = "Dark",
-   Acrylic = false,
-   MinimizeKey = Enum.KeyCode.End 
+-- Notify
+StarterGui:SetCore("SendNotification", {
+    Title = "KeyAuth",
+    Text = "Initializing...",
+    Duration = 4
 })
 
-local Tabs = {
-    Main     = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-    Raid     = Window:AddTab({ Title = "Raid", Icon = "sword" }),
-    Players  = Window:AddTab({ Title = "Player", Icon = "layers" }),
-    Misc     = Window:AddTab({ Title = "Misc", Icon = "flame" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-}
+--========================--
+--        INIT            --
+--========================--
+local initReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?" ..
+    "name="..AppName ..
+    "&ownerid="..OwnerID ..
+    "&type=init" ..
+    "&ver="..AppVersion
+)
 
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-SaveManager:LoadAutoloadConfig()
-Window:SelectTab(1)
+local initData = HttpService:JSONDecode(initReq)
 
-print("🟢 Interface chargée avec succès !")
+if not initData.success then
+    Player:Kick("❌ INIT ERROR: "..initData.message)
+    return
+end
+
+local sessionid = initData.sessionid
+print("[INIT OK] Session:", sessionid)
+
+--========================--
+--     LICENSE CHECK      --
+--        IP ONLY          --
+--========================--
+local licenseReq = game:HttpGet(
+    "https://keyauth.win/api/1.1/?" ..
+    "name="..AppName ..
+    "&ownerid="..OwnerID ..
+    "&type=license" ..
+    "&key="..License ..
+    "&sessionid="..sessionid ..
+    "&ver="..AppVersion
+)
+
+local licenseData = HttpService:JSONDecode(licenseReq)
+
+if not licenseData.success then
+    Player:Kick("❌ BAD KEY: "..licenseData.message)
+    return
+end
+
+--========================--
+--     AUTH SUCCESS       --
+--========================--
+
+-- Save key
+pcall(function()
+    writefile(KeyFile, License)
+end)
+
+-- Print IP to confirm IP LOCK
+print("====== AUTH SUCCESS ======")
+print("Username :", licenseData.info.username)
+print("IP LOCKED :", licenseData.info.ip)
+print("Created  :", licenseData.info.createdate)
+print("Last Login :", licenseData.info.lastlogin)
+print("==========================")
+
+StarterGui:SetCore("SendNotification", {
+    Title = "✔ AUTH SUCCESS",
+    Text = "IP Locked: "..licenseData.info.ip,
+    Duration = 6
+})
+
+--========================--
+--   YOUR SCRIPT BELOW    --
+--========================--
+
+print("SCRIPT UNLOCKED ✔")
