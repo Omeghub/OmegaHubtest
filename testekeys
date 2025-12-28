@@ -2,7 +2,7 @@
 --   KEYAUTH IP CHECK     --
 --========================--
 
-local KeyFile = "OmegaAuthKey.txt"
+local KeyFile = "OmegaAuth.txt"
 local License
 
 -- Load saved key
