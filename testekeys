@@ -1,130 +1,15 @@
---==============================--
---   KEYAUTH IP LOCK LOADER     --
---==============================--
-
-local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
 
-local Player = Players.LocalPlayer
+local key = _G.Key or readfile("OmegaAuthKey.txt")
 
---==============================--
---        CONFIG                --
---==============================--
-
-local KeyFile    = "OmegaKey.txt"
-local AppName    = "OmegaHubRb"
-local OwnerID    = "kD8AaNiIO3"
-local AppVersion = "1.0"
-
---==============================--
---     LOAD LICENSE KEY         --
---==============================--
-
-local License
-
-if pcall(function() return readfile(KeyFile) end) then
-    License = readfile(KeyFile)
-    print("[KEY LOADED FROM FILE]")
-else
-    License = _G.Key
-    print("[KEY LOADED FROM _G.Key]")
-end
-
--- Nettoyage CRUCIAL (espaces / retours ligne)
-if License then
-    License = License:gsub("%s+", "")
-end
-
-if not License or License == "" then
-    Player:Kick("⚠ No license key found.\nSet _G.Key before executing.")
+if AuthGuard.ValidateKey({ Service = __SERVICE_ID__, Key = key }) == 'invalid' then
+    game.Players.LocalPlayer:Kick("❌ BAD KEY")
     return
 end
-
-print("[LICENSE] ->", License)
-
---==============================--
---        NOTIFICATION          --
---==============================--
-
-StarterGui:SetCore("SendNotification", {
-    Title = "KeyAuth",
-    Text = "Initializing authentication...",
-    Duration = 4
-})
-
---==============================--
---           INIT               --
---==============================--
-
-local initURL =
-    "https://keyauth.win/api/1.1/?" ..
-    "name="..AppName ..
-    "&ownerid="..OwnerID ..
-    "&type=init" ..
-    "&ver="..AppVersion
-
-local initResponse = game:HttpGet(initURL)
-local initData = HttpService:JSONDecode(initResponse)
-
-if not initData.success then
-    print("[INIT ERROR]", initData.message)
-    Player:Kick("❌ INIT ERROR:\n"..initData.message)
-    return
-end
-
-local sessionid = initData.sessionid
-print("[INIT SUCCESS] SessionID:", sessionid)
-
---==============================--
---       LICENSE CHECK          --
---        IP ONLY               --
---==============================--
-
-local licenseURL =
-    "https://keyauth.win/api/1.1/?" ..
-    "name="..AppName ..
-    "&ownerid="..OwnerID ..
-    "&type=license" ..
-    "&key="..License ..
-    "&sessionid="..sessionid ..
-    "&ver="..AppVersion
-
-local licenseResponse = game:HttpGet(licenseURL)
-local licenseData = HttpService:JSONDecode(licenseResponse)
-
--- DEBUG TOUJOURS VISIBLE
-print("[KEYAUTH RESPONSE]", licenseData.message)
-
-if not licenseData.success then
-    Player:Kick("❌ LICENSE ERROR:\n"..licenseData.message)
-    return
-end
-
---==============================--
---        AUTH SUCCESS          --
---==============================--
-
-pcall(function()
-    writefile(KeyFile, License)
-    print("[KEY SAVED]")
-end)
-
-print("========== AUTH SUCCESS ==========")
-print("Username   :", licenseData.info.username)
-print("IP LOCKED  :", licenseData.info.ip)
-print("Created    :", licenseData.info.createdate)
-print("Last Login :", licenseData.info.lastlogin)
-print("=================================")
 
 StarterGui:SetCore("SendNotification", {
     Title = "✔ AUTH SUCCESS",
-    Text = "IP Locked: "..licenseData.info.ip,
-    Duration = 6
+    Text = "Welcome! Your HWID: "..AG_Hwid,
+    Duration = 5
 })
-
---==============================--
---     YOUR SCRIPT BELOW        --
---==============================--
-
-print("SCRIPT UNLOCKED ✔")
