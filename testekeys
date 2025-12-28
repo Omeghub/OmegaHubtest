@@ -1,15 +1,116 @@
-local HttpService = game:GetService("HttpService")
+--==============================--
+--      AUTHGUARD LOADER        --
+--==============================--
+
+-- SERVICES
+local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
 
-local key = _G.Key or readfile("OmegKey.txt")
+local Player = Players.LocalPlayer
 
-if AuthGuard.ValidateKey({ Service = __SERVICE_ID__, Key = key }) == 'invalid' then
-    game.Players.LocalPlayer:Kick("❌ BAD KEY")
+--==============================--
+--        CONFIG                --
+--==============================--
+
+local SERVICE_ID = "2300" -- 🔴 OBLIGATOIRE
+local KEY_FILE = "Omegay.txt"
+
+--==============================--
+--     LOAD AUTHGUARD LIB       --
+--==============================--
+
+local AuthGuard
+do
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/AuthGuard/AuthGuard/main/library.lua"
+        ))()
+    end)
+
+    if not success then
+        Player:Kick("❌ Failed to load AuthGuard library")
+        return
+    end
+
+    AuthGuard = result
+end
+
+--==============================--
+--       LOAD KEY               --
+--==============================--
+
+local Key
+
+if _G.Key then
+    Key = _G.Key
+elseif pcall(function() return readfile(KEY_FILE) end) then
+    Key = readfile(KEY_FILE)
+end
+
+-- Nettoyage clé (IMPORTANT)
+if Key then
+    Key = Key:gsub("%s+", "")
+end
+
+if not Key or Key == "" then
+    Player:Kick("⚠ No key found.\nSet _G.Key or create "..KEY_FILE)
     return
 end
 
+print("[KEY LOADED] ->", Key)
+
+--==============================--
+--     NOTIFICATION             --
+--==============================--
+
+StarterGui:SetCore("SendNotification", {
+    Title = "AuthGuard",
+    Text = "Validating key...",
+    Duration = 4
+})
+
+--==============================--
+--     VALIDATE KEY             --
+--==============================--
+
+local status = AuthGuard.ValidateKey({
+    Service = SERVICE_ID,
+    Key = Key
+})
+
+if status ~= "validated" then
+    Player:Kick("❌ INVALID KEY")
+    return
+end
+
+--==============================--
+--      SAVE KEY                --
+--==============================--
+
+pcall(function()
+    writefile(KEY_FILE, Key)
+end)
+
+--==============================--
+--     AUTH SUCCESS             --
+--==============================--
+
+print("========== AUTH SUCCESS ==========")
+print("HWID        :", AG_Hwid)
+print("Expires At  :", os.date("%Y-%m-%d %H:%M:%S", AG_ExpiredAt))
+print("Premium     :", AG_IsPremium)
+print("Discord ID  :", AG_DiscordId or "N/A")
+print("=================================")
+
 StarterGui:SetCore("SendNotification", {
     Title = "✔ AUTH SUCCESS",
-    Text = "Welcome! Your HWID: "..AG_Hwid,
+    Text = "Welcome! HWID locked.",
     Duration = 5
 })
+
+--==============================--
+--      YOUR SCRIPT BELOW       --
+--==============================--
+
+print("SCRIPT UNLOCKED ✔")
