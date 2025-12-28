@@ -182,15 +182,25 @@ local function SetupCharacter(char)
         end)
 
         if AutoSpell and (target.Position - HRP.Position).Magnitude < 35 then
+            local spellQ = LocalPlayer:FindFirstChild("spellQ")
             local cdQ = LocalPlayer:FindFirstChild("cooldownQ")
-            if cdQ and cdQ.Value <= 0 then
-                ReplicatedStorage.useSpell:FireServer("Q")
-                task.wait(SpellDelay)
-            end
+            if spellQ and spellQ.Value and cdQ and cdQ.Value <= 0 then
+            ReplicatedStorage.useSpell:FireServer("Q")
+            task.wait(SpellDelay)
+        end
 
+            local spellE = LocalPlayer:FindFirstChild("spellE")
             local cdE = LocalPlayer:FindFirstChild("cooldownE")
-            if cdE and cdE.Value <= 0 then
-                ReplicatedStorage.useSpell:FireServer("E")
+            if spellE and spellE.Value and cdE and cdE.Value <= 0 then
+            ReplicatedStorage.useSpell:FireServer("E")
+            task.wait(SpellDelay)
+        end
+
+
+            local spellR = LocalPlayer:FindFirstChild("spellR")
+            local cdR = LocalPlayer:FindFirstChild("cooldownR")
+            if spellR and spellR.Value and cdR and cdR.Value <= 0 then
+                ReplicatedStorage.useSpell:FireServer("R")
                 task.wait(SpellDelay)
             end
         end
