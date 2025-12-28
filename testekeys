@@ -13,8 +13,8 @@ local Player = Players.LocalPlayer
 --==============================--
 
 local KeyFile    = "OmegaKey.txt"
-local AppName    = "OverScyth"
-local OwnerID    = "S23XTKpUTe"
+local AppName    = "OmegaHubRb"
+local OwnerID    = "kD8AaNiIO3"
 local AppVersion = "1.0"
 
 --==============================--
