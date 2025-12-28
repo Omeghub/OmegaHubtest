@@ -1,67 +1,87 @@
---========================--
---   KEYAUTH IP CHECK     --
---========================--
+--==============================--
+--   KEYAUTH IP LOCK LOADER     --
+--==============================--
 
-local KeyFile = "OmegaAuth.txt"
-local License
-
--- Load saved key
-if pcall(function() return readfile(KeyFile) end) then
-    License = readfile(KeyFile)
-    print("[KEY LOADED] -> "..License)
-else
-    License = _G.Key
-end
-
--- No key
-if not License or License == "" then
-    game.Players.LocalPlayer:Kick("⚠ Please set _G.Key before executing.")
-    return
-end
-
--- Services
+local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local StarterGui = game:GetService("StarterGui")
-local Player = game.Players.LocalPlayer
 
--- App info
+local Player = Players.LocalPlayer
+
+--==============================--
+--        CONFIG                --
+--==============================--
+
+local KeyFile    = "OmegaKey.txt"
 local AppName    = "OverScyth"
 local OwnerID    = "S23XTKpUTe"
 local AppVersion = "1.0"
 
--- Notify
+--==============================--
+--     LOAD LICENSE KEY         --
+--==============================--
+
+local License
+
+if pcall(function() return readfile(KeyFile) end) then
+    License = readfile(KeyFile)
+    print("[KEY LOADED FROM FILE]")
+else
+    License = _G.Key
+    print("[KEY LOADED FROM _G.Key]")
+end
+
+-- Nettoyage CRUCIAL (espaces / retours ligne)
+if License then
+    License = License:gsub("%s+", "")
+end
+
+if not License or License == "" then
+    Player:Kick("⚠ No license key found.\nSet _G.Key before executing.")
+    return
+end
+
+print("[LICENSE] ->", License)
+
+--==============================--
+--        NOTIFICATION          --
+--==============================--
+
 StarterGui:SetCore("SendNotification", {
     Title = "KeyAuth",
-    Text = "Initializing...",
+    Text = "Initializing authentication...",
     Duration = 4
 })
 
---========================--
---        INIT            --
---========================--
-local initReq = game:HttpGet(
+--==============================--
+--           INIT               --
+--==============================--
+
+local initURL =
     "https://keyauth.win/api/1.1/?" ..
     "name="..AppName ..
     "&ownerid="..OwnerID ..
     "&type=init" ..
     "&ver="..AppVersion
-)
 
-local initData = HttpService:JSONDecode(initReq)
+local initResponse = game:HttpGet(initURL)
+local initData = HttpService:JSONDecode(initResponse)
 
 if not initData.success then
-    Player:Kick("❌ INIT ERROR: "..initData.message)
+    print("[INIT ERROR]", initData.message)
+    Player:Kick("❌ INIT ERROR:\n"..initData.message)
     return
 end
 
 local sessionid = initData.sessionid
-print("[INIT OK] Session:", sessionid)
+print("[INIT SUCCESS] SessionID:", sessionid)
 
---========================--
---     LICENSE CHECK      --
---        IP ONLY          --
---========================--
-local licenseReq = game:HttpGet(
+--==============================--
+--       LICENSE CHECK          --
+--        IP ONLY               --
+--==============================--
+
+local licenseURL =
     "https://keyauth.win/api/1.1/?" ..
     "name="..AppName ..
     "&ownerid="..OwnerID ..
@@ -69,31 +89,33 @@ local licenseReq = game:HttpGet(
     "&key="..License ..
     "&sessionid="..sessionid ..
     "&ver="..AppVersion
-)
 
-local licenseData = HttpService:JSONDecode(licenseReq)
+local licenseResponse = game:HttpGet(licenseURL)
+local licenseData = HttpService:JSONDecode(licenseResponse)
+
+-- DEBUG TOUJOURS VISIBLE
+print("[KEYAUTH RESPONSE]", licenseData.message)
 
 if not licenseData.success then
-    Player:Kick("❌ BAD KEY: "..licenseData.message)
+    Player:Kick("❌ LICENSE ERROR:\n"..licenseData.message)
     return
 end
 
---========================--
---     AUTH SUCCESS       --
---========================--
+--==============================--
+--        AUTH SUCCESS          --
+--==============================--
 
--- Save key
 pcall(function()
     writefile(KeyFile, License)
+    print("[KEY SAVED]")
 end)
 
--- Print IP to confirm IP LOCK
-print("====== AUTH SUCCESS ======")
-print("Username :", licenseData.info.username)
-print("IP LOCKED :", licenseData.info.ip)
-print("Created  :", licenseData.info.createdate)
+print("========== AUTH SUCCESS ==========")
+print("Username   :", licenseData.info.username)
+print("IP LOCKED  :", licenseData.info.ip)
+print("Created    :", licenseData.info.createdate)
 print("Last Login :", licenseData.info.lastlogin)
-print("==========================")
+print("=================================")
 
 StarterGui:SetCore("SendNotification", {
     Title = "✔ AUTH SUCCESS",
@@ -101,8 +123,8 @@ StarterGui:SetCore("SendNotification", {
     Duration = 6
 })
 
---========================--
---   YOUR SCRIPT BELOW    --
---========================--
+--==============================--
+--     YOUR SCRIPT BELOW        --
+--==============================--
 
 print("SCRIPT UNLOCKED ✔")
