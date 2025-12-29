@@ -63,7 +63,8 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
-    Stats = Window:AddTab({ Title = "Stats", Icon = "sword" }),
+    Tower = Window:AddTab({ Title = "Infinite Towers", Icon = "sword" }),
+    Stats = Window:AddTab({ Title = "Stats", Icon = "chart-column" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 -- =========================================================
@@ -335,9 +336,8 @@ Tabs.Main:AddToggle("AutoRetry", {
         end
     end
 })
-
 -- =========================================================
--- WebHook
+-- SERVICES
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
@@ -350,36 +350,60 @@ local HttpRequest =
     or (fluxus and fluxus.request)
 
 if not HttpRequest then
-    error("Executor incompatible : HTTP requests non supportées")
+    error("❌ Executor incompatible : HTTP requests non supportées")
 end
 
+-- === Ignore certaines maps sans CompletionScreen ===
+local allowedPlace = true
+if game.PlaceId == 11872917490 then
+    warn("📌 Webhook désactivé dans cette map (11872917490) — pas de CompletionScreen détectable.")
+    allowedPlace = false
+end
+
+-- ===== Webhook et Discord ID =====
 local WebhookFile = "Webhook.txt"
 local WebhookUrl = ""
-
 if pcall(function() return readfile(WebhookFile) end) then
     WebhookUrl = readfile(WebhookFile)
 end
 
-local Input = Tabs.Main:AddInput("DiscordWebhook", {
+local DiscordIdFile = "DiscordID.txt"
+local DiscordID = ""
+if pcall(function() return readfile(DiscordIdFile) end) then
+    DiscordID = readfile(DiscordIdFile)
+end
+
+local Section = Tabs.Main:AddSection("Webhook")
+
+Tabs.Main:AddInput("DiscordWebhook", {
     Title = "Discord Webhook",
     Description = "Paste your Discord webhook here",
     Default = WebhookUrl,
     Placeholder = "https://discord.com/api/webhooks/...",
     Numeric = false,
     Finished = false,
-    Callback = function(Value)
-        WebhookUrl = Value
-        pcall(function()
-            writefile(WebhookFile, Value)
-        end)
+    Callback = function(value)
+        WebhookUrl = value
+        pcall(function() writefile(WebhookFile, value) end)
     end
 })
 
-local function postWebhook(payload)
-    if WebhookUrl == "" then
-        return
+Tabs.Main:AddInput("DiscordID", {
+    Title = "Your Discord ID",
+    Description = "Paste your Discord ID",
+    Default = DiscordID,
+    Placeholder = "123456789012345678",
+    Numeric = false,
+    Finished = false,
+    Callback = function(value)
+        DiscordID = value
+        pcall(function() writefile(DiscordIdFile, value) end)
     end
+})
 
+-- ===== Fonction HTTP =====
+local function postWebhook(payload)
+    if WebhookUrl == "" then return end
     pcall(function()
         HttpRequest({
             Url = WebhookUrl,
@@ -390,33 +414,103 @@ local function postWebhook(payload)
     end)
 end
 
-local function sendDungeonWebhook(coins, exp, elapsed, rewards)
-    local rewardText = ""
-    for _, r in ipairs(rewards) do
-        rewardText ..= r.rarity .. " : " .. r.name .. "\n"
+-- ===== Dungeon et format =====
+local function getDungeonName()
+    local ds = workspace:FindFirstChild("DungeonSettings")
+    local session = ds and ds:FindFirstChild("SessionName")
+    return (session and session.Value ~= "" and session.Value) or "Unknown Dungeon"
+end
+
+local function formatNumber(num)
+    num = tonumber(num)
+    if not num then return "0" end
+
+    if num >= 1e15 then
+        return string.format("%.1fq", num / 1e15) -- Quadrillion
+    elseif num >= 1e12 then
+        return string.format("%.1fT", num / 1e12) -- Trillion
+    elseif num >= 1e9 then
+        return string.format("%.1fB", num / 1e9)  -- Billion
+    elseif num >= 1e6 then
+        return string.format("%.1fm", num / 1e6)  -- Million
+    elseif num >= 1e3 then
+        return string.format("%.1fk", num / 1e3)  -- Thousand
+    else
+        return tostring(num)
     end
-    if rewardText == "" then
-        rewardText = "Aucune récompense"
+end
+
+-- ===== Envoi du webhook =====
+local function sendDungeonWebhook(coins, expGained, elapsed, rewards)
+    local data = LocalPlayer:FindFirstChild("data")
+    if not data then return end
+
+    local level = data.level.Value
+    local exp = formatNumber(data.exp.Value)
+    local expReq = formatNumber(data.expReq.Value)
+    local dungeonName = getDungeonName()
+
+    local rewardFields = {}
+    local mentionPing = ""
+
+    for _, r in ipairs(rewards) do
+        table.insert(rewardFields, {
+            name = r.name,
+            value = "**Rarity:** " .. r.rarity,
+            inline = true
+        })
+
+        if (r.rarity == "Legendary" or r.rarity == "Heirloom") and DiscordID ~= "" then
+            mentionPing = "<@" .. DiscordID .. ">"
+        end
+    end
+
+    if #rewardFields == 0 then
+        table.insert(rewardFields, {
+            name = "Rewards",
+            value = "Aucune récompense",
+            inline = false
+        })
     end
 
     postWebhook({
+        content = mentionPing,
         username = "Omega-Hub",
         embeds = {
             {
-                title = "🏆 Dungeon Completed",
-                color = 65280,
+                title = "✅ Round Completed!",
+                color = 5763719,
                 fields = {
-                    { name = "💰 Coins", value = tostring(coins), inline = true },
-                    { name = "⭐ EXP", value = tostring(exp), inline = true },
-                    { name = "⏱ Time", value = tostring(elapsed), inline = true },
-                    { name = "🎁 Rewards", value = rewardText, inline = false }
-                },
-                footer = { text = "Omega-Hub" }
+                    {
+                        name = "👤 Account Information",
+                        value =
+                            "**Name:** Omega-Hub\n" ..
+                            "**Current Level:** " .. level .. "\n" ..
+                            "**Level Progression:** " .. exp .. " / " .. expReq,
+                        inline = false
+                    },
+                    {
+                        name = "🗺️ Dungeon Stats",
+                        value =
+                            "**Name:** " .. dungeonName .. "\n" ..
+                            "**Time:** " .. elapsed .. "\n" ..
+                            "**Coins Gained:** " .. coins .. "\n" ..
+                            "**EXP Gained:** " .. expGained,
+                        inline = false
+                    }
+                }
+            },
+            {
+                title = "🎁 Rewards",
+                color = 3447003,
+                fields = rewardFields
             }
-        }
+        },
+        footer = { text = "Omega-Hub • " .. os.date("%d/%m/%Y %H:%M") }
     })
 end
 
+-- ===== Collecte des rewards =====
 local function fetchCompletionData()
     local gui = LocalPlayer:FindFirstChild("PlayerGui")
     if not gui then return end
@@ -433,22 +527,16 @@ local function fetchCompletionData()
     local rewardFrame = main:FindFirstChild("RewardFrame")
     if not rewardFrame then return end
 
-    local previousCount = 0
-    local stableCount = 0
-    local timeout = 8
-    local startTime = tick()
-
-    while tick() - startTime < timeout do
-        local currentCount = #rewardFrame:GetChildren()
-        if currentCount == previousCount then
-            stableCount = stableCount + 0.1
+    local lastCount, stableTime, start = 0, 0, tick()
+    while tick() - start < 8 do
+        local count = #rewardFrame:GetChildren()
+        if count == lastCount then
+            stableTime += 0.1
         else
-            stableCount = 0
-            previousCount = currentCount
+            stableTime = 0
+            lastCount = count
         end
-        if stableCount >= 0.8 then
-            break
-        end
+        if stableTime >= 1 then break end
         task.wait(0.1)
     end
 
@@ -464,26 +552,31 @@ local function fetchCompletionData()
     end
 
     local coins = main:FindFirstChild("CoinsValue") and main.CoinsValue.Text or "0"
-    local exp = main:FindFirstChild("EXPValue") and main.EXPValue.Text or "0"
+    local expGained = main:FindFirstChild("EXPValue") and main.EXPValue.Text or "0"
     local elapsed = main:FindFirstChild("ElapsedValue") and main.ElapsedValue.Text or "0"
 
-    sendDungeonWebhook(coins, exp, elapsed, rewards)
+    sendDungeonWebhook(coins, expGained, elapsed, rewards)
 end
 
-local function listenCompletion()
-    local gui = LocalPlayer:WaitForChild("PlayerGui")
-    local screen = gui:WaitForChild("CompletionScreen")
-    local border = screen:WaitForChild("CompletionBorder")
+-- ===== Écoute de la fin de dungeon =====
+if allowedPlace then
+    local function listenCompletion()
+        local gui = LocalPlayer:WaitForChild("PlayerGui")
+        local screen = gui:FindFirstChild("CompletionScreen")
+        if not screen then return end
+        local border = screen:FindFirstChild("CompletionBorder")
+        if not border then return end
 
-    border:GetPropertyChangedSignal("Visible"):Connect(function()
-        if border.Visible then
-            task.wait(0.3)
-            fetchCompletionData()
-        end
-    end)
+        border:GetPropertyChangedSignal("Visible"):Connect(function()
+            if border.Visible then
+                task.wait(0.3)
+                fetchCompletionData()
+            end
+        end)
+    end
+
+    listenCompletion()
 end
-
-listenCompletion()
 
 -- =========================================================
 -- AUTO STATS
