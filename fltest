@@ -451,7 +451,7 @@ local function sendDungeonWebhook(coins, expGained, elapsed, rewards)
     local dungeonName = getDungeonName()
 
     local rewardFields = {}
-    local mentionPing = ""
+    local mentionPing = "" -- Ping vide par défaut
 
     for _, r in ipairs(rewards) do
         table.insert(rewardFields, {
@@ -460,7 +460,8 @@ local function sendDungeonWebhook(coins, expGained, elapsed, rewards)
             inline = true
         })
 
-        if (r.rarity == "Legendary" or r.rarity == "Heirloom") and DiscordID ~= "" then
+        -- Ping Discord si Legendary ou Heirloom
+        if DiscordID ~= "" and (r.rarity:lower() == "legendary" or r.rarity:lower() == "heirloom") then
             mentionPing = "<@" .. DiscordID .. ">"
         end
     end
@@ -577,7 +578,6 @@ if allowedPlace then
 
     listenCompletion()
 end
-
 -- =========================================================
 -- AUTO STATS
 local AutoPhysical = false
