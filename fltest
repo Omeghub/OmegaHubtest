@@ -64,7 +64,7 @@ local Window = Fluent:CreateWindow({
 local Tabs = {
     Main = Window:AddTab({ Title = "Auto Farm", Icon = "swords" }),
     Tower = Window:AddTab({ Title = "Infinite Towers", Icon = "sword" }),
-    Stats = Window:AddTab({ Title = "Stats", Icon = "chart-column" }),
+    Stats = Window:AddTab({ Title = "Stats", Icon = "chart-bar" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 -- =========================================================
