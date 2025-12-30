@@ -38,9 +38,6 @@ local TeleportQueued = false
 
 LocalPlayer.OnTeleport:Connect(function()
     if TeleportQueued then return end
-
-Traduire
-
     TeleportQueued = true
 
     queue([[
