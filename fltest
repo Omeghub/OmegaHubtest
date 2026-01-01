@@ -176,6 +176,26 @@ local function GetBestTarget(enemies)
     return closest
 end
 
+local function GetRoseRoot()
+    local roseFolder = workspace:FindFirstChild("Rose")
+    if not roseFolder then return nil end
+
+    local hitbox = roseFolder:FindFirstChild("Hitbox")
+    if not hitbox then return nil end
+
+    if hitbox:IsA("Model") then
+        return GetModelRoot(hitbox)
+    end
+
+    if hitbox:IsA("BasePart") then
+        return hitbox
+    end
+
+    return nil
+end
+
+
+
 local function SetupCharacter(char)
     Character = char
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -216,10 +236,17 @@ local function SetupCharacter(char)
             return
         end
 
-        local enemies = workspace:FindFirstChild("Enemies")
-        if not enemies then return end
+        local roseTarget = GetRoseRoot()
+        local target
 
-        local target = GetBestTarget(enemies)
+        if roseTarget then
+            target = roseTarget
+        else
+            local enemies = workspace:FindFirstChild("Enemies")
+        if not enemies then return end
+            target = GetBestTarget(enemies)
+        end
+
         if not target then
             CurrentTarget = nil
             return
@@ -233,9 +260,16 @@ local function SetupCharacter(char)
             end
         end
 
-        local pos = target.Position + Vector3.new(0, HeightAboveMob, 0)
-        local dir = pos - HRP.Position
-        HRP.Velocity = dir.Magnitude > 2 and dir.Unit * TpSpeed or Vector3.zero
+        local pos
+        if target == roseTarget then
+            pos = target.Position + Vector3.new(0,1,0)
+        else
+            pos = target.Position + Vector3.new(0, HeightAboveMob, 0)
+        end
+
+local dir = pos - HRP.Position
+HRP.Velocity = dir.Magnitude > 2 and dir.Unit * TpSpeed or Vector3.zero
+
 
         HRP.CFrame = CFrame.lookAt(
             HRP.Position,
