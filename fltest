@@ -141,7 +141,7 @@ task.spawn(function()
 
                 local startEvent = ReplicatedStorage:FindFirstChild("StartDungeon")
                 if startEvent then
-                    startEvent:FireServer({ true, "happynewyear" })
+                    startEvent:FireServer({ true, "happynewyear!" })
                 end
 
                 DungeonStarted = true
