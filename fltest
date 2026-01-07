@@ -93,7 +93,7 @@ local DungeonScripts = {
     ["Ethereal Farlands"] = "",
     ["Hellbound Sanctum"] = "",
     ["Forsaken Limbo"] = "",
-    --["Neon District"] = "https://raw.githubusercontent.com/Omeghub/FabledlegacyDungeon/refs/heads/main/ltwelfthdungeon",
+    ["Neon District"] = "https://raw.githubusercontent.com/Omeghub/FabledlegacyDungeon/refs/heads/main/ltwelfthdungeon",
 }
 
 local Players = game:GetService("Players")
